@@ -23,11 +23,12 @@ setup(
     entry_points={'console_scripts': []},
     install_requires=[
         'numpy >= 1.6.1',
-        'astropy >= 2.0.7',
-        'matplotlib >= 1.5.0',
-        'scipy >= 0.14',
-        'pyyaml',
-        'healpy',
+        'astropy >= 3.2.2',
+        'matplotlib >= 3.1.1',
+        'scipy >= 1.3.1',
+        'numba >= 0.45.1',
+        'pytest >= 5.2.1',
+        'healpy >= 1.12.0',
     ],
     extras_require=dict(
         all=[],
