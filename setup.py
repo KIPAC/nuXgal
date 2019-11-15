@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 from setuptools import setup, find_packages
-from KIPAC.nuXgal.version import get_git_version
+from version import get_git_version
 
 setup(
     name='KIPAC_nuXgal',
