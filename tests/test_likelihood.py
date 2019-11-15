@@ -1,4 +1,15 @@
-from .Analyze import *
+
+import numpy as np
+
+import healpy as hp
+
+from KIPAC.nuXgal.Utilityfunc import significance
+
+from KIPAC.nuXgal.Analyze import Analyze
+
+from KIPAC.nuXgal.EventGenerator import EventGenerator
+
+from KIPAC.nuXgal.Likelihood import LogLikelihood
 
 cf = Analyze()
 w_cross_mean, w_cross_std = cf.crossCorrelation_atm_std(50)
@@ -23,10 +34,6 @@ if __name__ == "__main__":
         datamap[i] = hp.fitsfunc.read_map('../syntheticData/eventmap_astro' + str(i)+'.fits', verbose=False)
     datamap = datamap + eg.atmEvent(1.-0.003)
     lnLi = LogLikelihood(1., 0.6, datamap)
-    
+
     for i, _lnLi in enumerate(lnLi):
-        print(i, _lnLi, significance(_lnLi,  3 * cf.NSIDE - 1))
-    
-    
-
-
+        print(i, _lnLi, significance(_lnLi, 3 * cf.NSIDE - 1))
