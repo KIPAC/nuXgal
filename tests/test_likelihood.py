@@ -22,7 +22,8 @@ from KIPAC.nuXgal.Likelihood import log_prior
 from KIPAC.nuXgal.EventGenerator import EventGenerator
 
 cf = Analyze()
-w_cross_mean, w_cross_std = cf.crossCorrelation_atm_std(10)
+#w_cross_mean, w_cross_std = cf.crossCorrelation_atm_std(10)
+w_cross_mean, w_cross_std = cf.crossCorrelation_atm_std(1)
 
 eg = EventGenerator()
 seed_g = 42
@@ -87,15 +88,11 @@ def log_probability(f, w_data_i, w_error_i):
 
 def test_likelihood():
 
-
-
-
     ndim = 1
 
 
     pos = np.array([1.]) + np.random.randn(2, 1) * 1e-2
     nwalkers, ndim = pos.shape
-
 
     filename = 'test.h5'
 
@@ -104,37 +101,41 @@ def test_likelihood():
     sampler = emcee.EnsembleSampler(nwalkers, ndim, log_probability, args=(w_data[energyBin], w_cross_std[energyBin]),backend=backend)
     sampler.run_mcmc(pos, 100, progress=True);
 
-    reader = emcee.backends.HDFBackend(filename)
+    if Utils.MAKE_TEST_PLOTS:
 
-    fig, axes = plt.subplots(1, figsize=(10, 7), sharex=True)
-    samples = reader.get_chain()
-    labels = ["f_diff", "f_gal"]
+        reader = emcee.backends.HDFBackend(filename)
+        
+        fig, axes = plt.subplots(1, figsize=(10, 7), sharex=True)
+        samples = reader.get_chain()
+        labels = ["f_diff", "f_gal"]
 
-    ax = axes
-    ax.plot(samples[:, :, 0], "k", alpha=0.3)
-    ax.set_xlim(0, len(samples))
-    ax.set_ylabel(labels[0])
-    ax.yaxis.set_label_coords(-0.1, 0.5)
+        ax = axes
+        ax.plot(samples[:, :, 0], "k", alpha=0.3)
+        ax.set_xlim(0, len(samples))
+        ax.set_ylabel(labels[0])
+        ax.yaxis.set_label_coords(-0.1, 0.5)
 
-    axes.set_xlabel("step number");
-    fig.savefig(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'check.pdf'))
-
-
-#tau = sampler.get_autocorr_time()
-#print(tau)
+        axes.set_xlabel("step number");
+        fig.savefig(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'check.pdf'))
 
 
-    flat_samples = reader.get_chain(discard=100, thin=15, flat=True)
-    print(flat_samples.shape)
+        #tau = sampler.get_autocorr_time()
+        #print(tau)
+
+
+        flat_samples = reader.get_chain(discard=10, thin=15, flat=True)
+        print(flat_samples.shape)
+
+
+        fig = corner.corner(
+            flat_samples, labels=['f_diff', 'f_gal'], truths=[1.0, 0.6]
+            )
+        fig.savefig(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'corner.pdf'))
 
 
 
 
-    fig = corner.corner(
-        flat_samples, labels=['f_diff', 'f_gal'], truths=[1.0, 0.6]
-        )
-    fig.savefig(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'corner.pdf'))
 
-
-
-cProfile.run('test_likelihood()', 'fit_profile.pstats')
+if __name__=='__main__':
+    #cProfile.run('test_likelihood()', 'fit_profile.pstats')
+    test_likelihood()
