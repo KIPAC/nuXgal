@@ -14,6 +14,8 @@ class Analyze():
 
     aeff_factor = Defaults.DT_SECONDS / (4 * np.pi)  / Defaults.M2_TO_CM2
 
+
+
     def __init__(self):
 
         # exposure map
