@@ -89,6 +89,7 @@ class Analyze():
         w_cross = np.zeros((N_re, Defaults.NEbin, 3 * Defaults.NSIDE))
 
         for iteration in np.arange(N_re):
+            print("iter ", iteration)
             eventmap_atm = eg.atmEvent(1.)
             w_cross[iteration] = self.crossCorrelationFromCountsmap(eventmap_atm)
 
