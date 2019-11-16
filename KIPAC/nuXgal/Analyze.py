@@ -20,18 +20,16 @@ class Analyze():
         self.exposuremap = np.zeros((Defaults.NEbin, Defaults.NPIXEL))
         for i in np.arange(Defaults.NEbin):
             #self.exposuremap[i] = hp.fitsfunc.read_map('../syntheticData/Aeff' + str(i)+'.fits', verbose=False)
-            self.exposuremap[i] = hp.fitsfunc.read_map(os.path.join(Defaults.NUXGAL_DATA_DIR,
-                                                                    'syntheticData',
+            self.exposuremap[i] = hp.fitsfunc.read_map(os.path.join(Defaults.NUXGAL_IRF_DIR,
                                                                     'Aeff' + str(i)+'.fits'), verbose=False)
 
         # generate galaxy samples
         self.l_cl = np.arange(1, 3 * Defaults.NSIDE + 1)
         self.l = np.linspace(1, 500, 500)
-        cl_galaxy_file = np.loadtxt(os.path.join(Defaults.NUXGAL_DATA_DIR, 'data', 'Cl_ggRM.dat'))
+        cl_galaxy_file = np.loadtxt(os.path.join(Defaults.NUXGAL_ANCIL_DIR, 'Cl_ggRM.dat'))
 
         self.cl_galaxy = cl_galaxy_file[:500]
-        self.overdensityMap_g = hp.fitsfunc.read_map(os.path.join(Defaults.NUXGAL_DATA_DIR,
-                                                                  'syntheticData',
+        self.overdensityMap_g = hp.fitsfunc.read_map(os.path.join(Defaults.NUXGAL_ANCIL_DIR,
                                                                   'galaxySampleOverdensity.fits'), verbose=False)
 
 

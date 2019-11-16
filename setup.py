@@ -20,7 +20,9 @@ setup(
         'Topic :: Scientific/Engineering :: Astronomy',
     ],
     scripts=[],
-    entry_points={'console_scripts': []},
+    entry_points={'console_scripts': [
+            'nuXgal_generateICIRFS = scripts.generateICIRFS:main',
+            ]},
     install_requires=[
         'numpy >= 1.6.1',
         'astropy >= 3.2.2',

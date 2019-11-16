@@ -24,11 +24,16 @@ parts/
 sdist/
 var/
 wheels/
-plots/
 *.egg-info/
 .installed.cfg
 *.egg
 MANIFEST
+
+# Analsis stuff
+plots/
+data/data/
+syntheticData/
+
 
 # PyInstaller
 #  Usually these files are written by a python script from a template

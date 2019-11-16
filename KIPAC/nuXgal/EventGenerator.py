@@ -17,8 +17,8 @@ class EventGenerator():
 
         self.prob_reject = np.zeros((Defaults.NEbin, Defaults.NPIXEL))
         for i in np.arange(Defaults.NEbin):
-            self.prob_reject[i] = hp.fitsfunc.read_map(os.path.join(Defaults.NUXGAL_DATA_DIR,
-                                                                    'syntheticData/Aeff' + str(i)+'.fits'), verbose=False)
+            self.prob_reject[i] = hp.fitsfunc.read_map(os.path.join(Defaults.NUXGAL_IRF_DIR,
+                                                                    'Aeff' + str(i)+'.fits'), verbose=False)
             self.Aeff_max[i] = np.max(self.prob_reject[i])
             self.prob_reject[i] = self.prob_reject[i] / self.Aeff_max[i]
 
@@ -26,8 +26,8 @@ class EventGenerator():
             #hp.mollview(prob_reject[i])
             #plt.savefig('syntheticEventmap/prob_reject' + str(i) + '.pdf')
 
-        self.meanEventnumber_year = np.loadtxt(os.path.join(Defaults.NUXGAL_DATA_DIR,
-                                                            'syntheticData/eventNumber_Ebin_perIC86year.txt'))
+        self.meanEventnumber_year = np.loadtxt(os.path.join(Defaults.NUXGAL_IRF_DIR,
+                                                            'eventNumber_Ebin_perIC86year.txt'))
 
 
 
@@ -66,7 +66,7 @@ class EventGenerator():
 
 
     def atmBG_coszenith(self, eventNumber, energyBin):
-        N_coszenith = np.loadtxt(os.path.join(Defaults.NUXGAL_DATA_DIR, 'syntheticData/N_coszenith'+str(energyBin)+'.txt'))
+        N_coszenith = np.loadtxt(os.path.join(Defaults.NUXGAL_IRF_DIR, 'N_coszenith'+str(energyBin)+'.txt'))
         N_coszenith_spline = interp1d(N_coszenith[:, 0], N_coszenith[:, 1], bounds_error=False, fill_value=0.)
         grid_cdf = np.linspace(-1, 1, 300)
         dgrid_cdf = np.mean(grid_cdf[1:] - grid_cdf[0:-1])

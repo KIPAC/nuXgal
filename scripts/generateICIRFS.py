@@ -20,22 +20,23 @@ def main():
 
     args = parser.parse_args()
 
-    try:
-        os.makedirs(os.path.join(args.output, 'syntheticData'))
-    except OSError:
-        pass
-    try:
-        os.makedirs(os.path.join(args.output, 'plots'))
-    except OSError:
-        pass
+    icecube_data_dir = os.path.join(args.input, 'data/3year-data-release')
+    data_dir = os.path.join(args.output, 'data', 'data')
+    irf_dir = os.path.join(args.output, 'data', 'irfs')
+    plot_dir = os.path.join(args.output, 'plots')
 
+    for dirname in [data_dir, irf_dir, plot_dir]:
+        try:
+            os.makedirs(dirname)
+        except OSError:
+            pass
 
     # counts map in selected energy bins
     
 
     # -------------- counts map --------------
 
-    AtmBG_file = np.loadtxt(os.path.join(args.input, 'data/3year-data-release/IC86-2012-events.txt'))
+    AtmBG_file = np.loadtxt(os.path.join(icecube_data_dir, 'IC86-2012-events.txt'))
     
     
     # countsmap has the shape (number of energy bins, healpy map size)
@@ -56,16 +57,16 @@ def main():
         countsmap[_index_map_logE[i]][_index_map_pixel[i]] += 1
 
     for i in np.arange(len(Defaults.map_logE_center)):
-        hp.fitsfunc.write_map(os.path.join(args.output, 'syntheticData/counts_atm' + str(i)+'.fits'), countsmap[i])
+        hp.fitsfunc.write_map(os.path.join(data_dir, 'counts_atm' + str(i)+'.fits'), countsmap[i])
 
     for i in np.arange(len(Defaults.map_logE_center)):
         fig = plt.figure(figsize=(8,6))
-        a = hp.fitsfunc.read_map(os.path.join(args.output, 'syntheticData/counts_atm' + str(i)+'.fits'))
+        a = hp.fitsfunc.read_map(os.path.join(data_dir, 'counts_atm' + str(i)+'.fits'))
         hp.mollview(a)
-        plt.savefig(os.path.join(args.output, 'syntheticData/counts_atm' + str(i) + '.pdf'))
+        plt.savefig(os.path.join(plot_dir, 'counts_atm' + str(i) + '.pdf'))
 
     # -------------- exposure map --------------
-    Aeff_file = np.loadtxt(os.path.join(args.input, 'data/3year-data-release/IC86-2012-TabulatedAeff.txt'))
+    Aeff_file = np.loadtxt(os.path.join(icecube_data_dir, 'IC86-2012-TabulatedAeff.txt'))
     
     # compute exposure map at the center of an energy bin
     exposuremap = np.zeros((len(Defaults.map_logE_center), hp.pixelfunc.nside2npix(Defaults.NSIDE)))
@@ -84,21 +85,21 @@ def main():
 
     for i in np.arange(len(Defaults.map_logE_center)):
         exposuremap[i] = Aeff_table[index_E[i] * 200 + index_coszenith]
-        hp.fitsfunc.write_map(os.path.join(args.output, 'syntheticData/Aeff' + str(i)+'.fits'), exposuremap[i])
+        hp.fitsfunc.write_map(os.path.join(irf_dir, 'Aeff' + str(i)+'.fits'), exposuremap[i])
 
     for i in np.arange(len(Defaults.map_logE_center)):
         fig = plt.figure(figsize=(8,6))
-        a = hp.fitsfunc.read_map(os.path.join(args.output, 'syntheticData/Aeff' + str(i)+'.fits'))
+        a = hp.fitsfunc.read_map(os.path.join(irf_dir, 'Aeff' + str(i)+'.fits'))
         hp.mollview(a)
-        plt.savefig(os.path.join(args.output, 'syntheticData/Aeff' + str(i) + '.pdf'))
+        plt.savefig(os.path.join(plot_dir, 'Aeff' + str(i) + '.pdf'))
 
     # -------------- coszenith distribution --------------
     Nzenith_bin = 60
     N_coszenith = np.zeros((len(Defaults.map_logE_center), Nzenith_bin))
 
-    for file in [os.path.join(args.input, 'data/3year-data-release/IC86-2012-events.txt'),
-                 os.path.join(args.input, 'data/3year-data-release/IC86-2011-events.txt'),
-                 os.path.join(args.input, 'data/3year-data-release/IC79-2010-events.txt')]:
+    for file in [os.path.join(icecube_data_dir, 'IC86-2012-events.txt'),
+                 os.path.join(icecube_data_dir, 'IC86-2011-events.txt'),
+                 os.path.join(icecube_data_dir, 'IC79-2010-events.txt')]:
         
         AtmBG_file = np.loadtxt(file)
         _index_map_logE = np.searchsorted(Defaults.map_logE_edge, AtmBG_file[:, 1]) - 1
@@ -111,21 +112,21 @@ def main():
     fig = plt.figure(figsize=(8,6))
     for i in np.arange(len(Defaults.map_logE_center)):
         plt.plot((cosZenithBinEdges[0:-1] + cosZenithBinEdges[1:])/2., N_coszenith[i], lw=2, label=str(i))
-        np.savetxt(os.path.join(args.output, 'syntheticData/N_coszenith'+str(i)+'.txt'),
+        np.savetxt(os.path.join(irf_dir, 'N_coszenith'+str(i)+'.txt'),
                    np.column_stack(((cosZenithBinEdges[0:-1] + cosZenithBinEdges[1:])/2., N_coszenith[i])))
 
     plt.xlabel(r'$\cos\,\theta$')
     plt.ylabel('Number of counts in 2010-2012 data')
     plt.legend()
-    plt.savefig(os.path.join(args.output, 'syntheticData/N_coszenith.pdf'))
+    plt.savefig(os.path.join(plot_dir, 'N_coszenith.pdf'))
 
 
     # average count number per energy bin in IC86 one year data
     eventnumber_Ebin = np.zeros(len(Defaults.map_logE_center))
     eventnumber_Ebin2 = np.zeros(len(Defaults.map_logE_center))
 
-    for file in [os.path.join(args.input, 'data/3year-data-release/IC86-2012-events.txt'),
-                 os.path.join(args.input, 'data/3year-data-release/IC86-2011-events.txt')]:
+    for file in [os.path.join(icecube_data_dir, 'IC86-2012-events.txt'),
+                 os.path.join(icecube_data_dir, 'IC86-2011-events.txt')]:
         AtmBG_file = np.loadtxt(file)
         eventnumber_Ebin += np.histogram(AtmBG_file[:,1], Defaults.map_logE_edge)[0]
         _index_map_logE = np.searchsorted(Defaults.map_logE_edge, AtmBG_file[:, 1]) - 1
@@ -135,14 +136,14 @@ def main():
 
     #print eventnumber_Ebin
     #print eventnumber_Ebin2
-    np.savetxt(os.path.join(args.output, 'syntheticData/eventNumber_Ebin_perIC86year.txt'), eventnumber_Ebin / 2.)
+    np.savetxt(os.path.join(irf_dir, 'eventNumber_Ebin_perIC86year.txt'), eventnumber_Ebin / 2.)
     #print np.sum(eventnumber_Ebin),   np.sum(eventnumber_Ebin2)
 
 
     # ------------- check counts rate -----------
     bgmap = np.zeros((len(Defaults.map_logE_center), hp.pixelfunc.nside2npix(Defaults.NSIDE)))
     for i in np.arange(len(Defaults.map_logE_center)):
-        bgmap[i] = hp.fitsfunc.read_map(os.path.join(args.output, 'syntheticData/counts_atm' + str(i)+'.fits'), verbose=False)
+        bgmap[i] = hp.fitsfunc.read_map(os.path.join(data_dir, 'counts_atm' + str(i)+'.fits'), verbose=False)
 
     # check rate per cos zenith bin
     coszenith_bin = np.linspace(-1, 1, 20)
@@ -163,7 +164,7 @@ def main():
     plt.yscale('log')
     plt.ylim(1e-8, 1e-2)
 
-    plt.savefig(os.path.join(args.output, 'plots/countsRate.pdf'))
+    plt.savefig(os.path.join(plot_dir, 'countsRate.pdf'))
 
 
 if __name__ == '__main__':

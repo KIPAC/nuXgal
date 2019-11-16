@@ -17,11 +17,17 @@ DT_SECONDS = 28771200 # 333 * 86400
 
 M2_TO_CM2 = 1e4 # Conversion for effective area
 
-if 'NUXGAL_DATA_DIR' in os.environ:
-    NUXGAL_DATA_DIR = os.environ['NUXGAL_DATA_DIR']
+if 'NUXGAL_DIR' in os.environ:
+    NUXGAL_DIR = os.environ['NUXGAL_DIR']
 else:
-    NUXGAL_DATA_DIR = '..'
-print("Using %s for NUXGAL_DATA_DIR" % NUXGAL_DATA_DIR)
+    NUXGAL_DIR = '.'
+print("Using %s for NUXGAL_DIR" % NUXGAL_DIR)
+
+NUXGAL_ANCIL_DIR = os.path.join(NUXGAL_DIR, 'data', 'ancil')
+NUXGAL_IRF_DIR = os.path.join(NUXGAL_DIR, 'data', 'irfs')
+NUXGAL_DATA_DIR = os.path.join(NUXGAL_DIR, 'data', 'data')
+NUXGAL_SYNTHETICDATA_DIR = os.path.join(NUXGAL_DIR, 'syntheticData')
+NUXGAL_PLOT_DIR = os.path.join(NUXGAL_DIR, 'plots')
 
 #Derived quantities
 NPIXEL = hp.pixelfunc.nside2npix(NSIDE)
