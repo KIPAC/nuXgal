@@ -1,7 +1,16 @@
+import os
 import numpy as np
 import healpy as hp
 
 from scipy.stats import norm, distributions
+
+def makedir_safe(filepath):
+    try:
+        os.makedirs(os.path.dirname(filepath))
+    except OSError:
+        pass
+                   
+
 
 # generate a density map using cl
 def density_cl(cl, nside, randomSeed):

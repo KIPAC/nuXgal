@@ -1,3 +1,5 @@
+
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import integrate as integrate
@@ -5,23 +7,18 @@ import healpy as hp
 from scipy.interpolate import CubicSpline, interp1d, UnivariateSpline
 
 from .Utilityfunc import *
+from . import Defaults
 
 class EventGenerator():
     def __init__(self):
-        self.NSIDE = 128
-        self.NPIXEL = hp.pixelfunc.nside2npix(self.NSIDE)
 
-        # counts map in selected energy bins
-        self.map_logE_edge = np.linspace(2, 9, 8)
-        self.map_logE_center = (self.map_logE_edge[0:-1] + self.map_logE_edge[1:]) / 2.
-        self.NEbin = len(self.map_logE_center)
-        self.dlogE = np.mean(self.map_logE_edge[1:] - self.map_logE_edge[0:-1])
-        self.Aeff_max = np.zeros(self.NEbin) # m^2
+        self.Aeff_max = np.zeros(Defaults.NEbin) # m^2
 
 
-        self.prob_reject = np.zeros((self.NEbin, self.NPIXEL))
-        for i in np.arange(self.NEbin):
-            self.prob_reject[i] = hp.fitsfunc.read_map('../syntheticData/Aeff' + str(i)+'.fits', verbose=False)
+        self.prob_reject = np.zeros((Defaults.NEbin, Defaults.NPIXEL))
+        for i in np.arange(Defaults.NEbin):
+            self.prob_reject[i] = hp.fitsfunc.read_map(os.path.join(Defaults.NUXGAL_DATA_DIR,
+                                                                    'syntheticData/Aeff' + str(i)+'.fits'), verbose=False)
             self.Aeff_max[i] = np.max(self.prob_reject[i])
             self.prob_reject[i] = self.prob_reject[i] / self.Aeff_max[i]
 
@@ -29,14 +26,15 @@ class EventGenerator():
             #hp.mollview(prob_reject[i])
             #plt.savefig('syntheticEventmap/prob_reject' + str(i) + '.pdf')
 
-        self.meanEventnumber_year = np.loadtxt('../syntheticData/eventNumber_Ebin_perIC86year.txt')
+        self.meanEventnumber_year = np.loadtxt(os.path.join(Defaults.NUXGAL_DATA_DIR,
+                                                            'syntheticData/eventNumber_Ebin_perIC86year.txt'))
 
 
 
     def astroEvent_galaxy(self, density, intrinsicCounts, verbose=True):
         # we have assumed that density, intrinsicCounts matches shapes of NPIXEL and NEbin, respectively
-        eventmap = np.zeros((self.NEbin, self.NPIXEL))
-        for i in range(self.NEbin):
+        eventmap = np.zeros((Defaults.NEbin, Defaults.NPIXEL))
+        for i in range(Defaults.NEbin):
             # generate event following galaxy-like distribution
             eventmap[i] = poisson_sampling(density, intrinsicCounts[i])
             if verbose:
@@ -63,12 +61,12 @@ class EventGenerator():
 
     def astroEvent_galaxy_powerlaw(self, density, Ntotal, alpha, emin=1e2, emax=1e9, verbose=True):
         energy = self.randPowerLaw(alpha, Ntotal, emin, emax)
-        intrinsicCounts = np.histogram(np.log10(energy), self.map_logE_edge)
+        intrinsicCounts = np.histogram(np.log10(energy), Defaults.map_logE_edge)
         return self.astroEvent_galaxy(density, intrinsicCounts, verbose=True)
 
 
     def atmBG_coszenith(self, eventNumber, energyBin):
-        N_coszenith = np.loadtxt('../syntheticData/N_coszenith'+str(energyBin)+'.txt')
+        N_coszenith = np.loadtxt(os.path.join(Defaults.NUXGAL_DATA_DIR, 'syntheticData/N_coszenith'+str(energyBin)+'.txt'))
         N_coszenith_spline = interp1d(N_coszenith[:, 0], N_coszenith[:, 1], bounds_error=False, fill_value=0.)
         grid_cdf = np.linspace(-1, 1, 300)
         dgrid_cdf = np.mean(grid_cdf[1:] - grid_cdf[0:-1])
@@ -92,31 +90,31 @@ class EventGenerator():
         return cdfFunc(coin_toss)
 
     def atmEvent_powerlaw(self, eventNumber, index):
-        eventmap = np.zeros((self.NEbin, self.NPIXEL))
+        eventmap = np.zeros((Defaults.NEbin, Defaults.NPIXEL))
         event_energy = self.randPowerLaw(index, eventNumber,
-                                         10.**self.map_logE_center[0],
-                                         10.**self.map_logE_center[-1])
-        eventnumber_Ebin = np.histogram(np.log10(event_energy), self.map_logE_edge)[0]
+                                         10.**Defaults.map_logE_center[0],
+                                         10.**Defaults.map_logE_center[-1])
+        eventnumber_Ebin = np.histogram(np.log10(event_energy), Defaults.map_logE_edge)[0]
         print(eventnumber_Ebin)
-        for i in range(self.NEbin): # note bin 5 and 6 have no event in 2012 data
+        for i in range(Defaults.NEbin): # note bin 5 and 6 have no event in 2012 data
             if eventnumber_Ebin[i] > 0:
                 coszenith = self.atmBG_coszenith(eventnumber_Ebin[i], i)
                 phi = np.random.rand(eventnumber_Ebin[i]) * 2 * np.pi
-                indexPixel = hp.pixelfunc.ang2pix(self.NSIDE, np.arccos(coszenith), phi)
+                indexPixel = hp.pixelfunc.ang2pix(Defaults.NSIDE, np.arccos(coszenith), phi)
                 for _indexPixel in indexPixel:
                     eventmap[i][_indexPixel] += 1
         return eventmap
 
     def atmEvent(self, duration_year):
-        eventmap = np.zeros((self.NEbin, self.NPIXEL))
+        eventmap = np.zeros((Defaults.NEbin, Defaults.NPIXEL))
         eventnumber_Ebin = np.random.poisson(self.meanEventnumber_year * duration_year)
-        for i in range(self.NEbin): # note bin 5 and 6 have no event in 2012 data
+        for i in range(Defaults.NEbin): # note bin 5 and 6 have no event in 2012 data
             if eventnumber_Ebin[i] > 0:
                 coszenith = self.atmBG_coszenith(eventnumber_Ebin[i], i)
                 if len(coszenith[np.abs(coszenith) > 1]):
                     print(coszenith[np.abs(coszenith) > 1])
                 phi = np.random.rand(eventnumber_Ebin[i]) * 2 * np.pi
-                indexPixel = hp.pixelfunc.ang2pix(self.NSIDE, np.arccos(coszenith), phi)
+                indexPixel = hp.pixelfunc.ang2pix(Defaults.NSIDE, np.arccos(coszenith), phi)
                 for _indexPixel in indexPixel:
                     eventmap[i][_indexPixel] += 1
         return eventmap
