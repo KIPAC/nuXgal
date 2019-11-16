@@ -57,7 +57,7 @@ def main():
         countsmap[_index_map_logE[i]][_index_map_pixel[i]] += 1
 
     for i in np.arange(len(Defaults.map_logE_center)):
-        hp.fitsfunc.write_map(os.path.join(data_dir, 'counts_atm' + str(i)+'.fits'), countsmap[i])
+        hp.fitsfunc.write_map(os.path.join(data_dir, 'counts_atm' + str(i)+'.fits'), countsmap[i], overwrite=True)
 
     for i in np.arange(len(Defaults.map_logE_center)):
         fig = plt.figure(figsize=(8,6))
@@ -85,7 +85,7 @@ def main():
 
     for i in np.arange(len(Defaults.map_logE_center)):
         exposuremap[i] = Aeff_table[index_E[i] * 200 + index_coszenith]
-        hp.fitsfunc.write_map(os.path.join(irf_dir, 'Aeff' + str(i)+'.fits'), exposuremap[i])
+        hp.fitsfunc.write_map(os.path.join(irf_dir, 'Aeff' + str(i)+'.fits'), exposuremap[i], overwrite=True)
 
     for i in np.arange(len(Defaults.map_logE_center)):
         fig = plt.figure(figsize=(8,6))
