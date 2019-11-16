@@ -15,7 +15,7 @@ def main():
     parser.add_argument("-i", "--input", default=None, required=True,
                         help="Directory with IceCube data")
 
-    parser.add_argument("-o", "--output", default=Defaults.NUXGAL_DATA_DIR,
+    parser.add_argument("-o", "--output", default=Defaults.NUXGAL_DIR,
                         help="Output directory")
 
     args = parser.parse_args()
