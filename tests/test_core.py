@@ -3,6 +3,8 @@ import os
 
 import numpy as np
 
+import pytest
+
 import healpy as hp
 
 from scipy import integrate
@@ -19,6 +21,9 @@ from KIPAC.nuXgal import Defaults
 
 from KIPAC.nuXgal.Utilityfunc import *
 
+from . import Utils
+
+
 font = {'family':'Arial', 'weight':'normal', 'size': 20}
 legendfont = {'fontsize':18, 'frameon':False}
 
@@ -30,7 +35,7 @@ for dirname in [Defaults.NUXGAL_SYNTHETICDATA_DIR, Defaults.NUXGAL_PLOT_DIR]:
         pass
 
 
-def checkSyntheticData():
+def test_SyntheticData():
 
     cf = Analyze()
 
@@ -75,39 +80,39 @@ def checkSyntheticData():
     intensity_atm_mu = cf.getIntensity(bgmap_mu)
 
 
+    if Utils.MAKE_TEST_PLOTS:
 
-    color_astro, color_atm_nu, color_atm_mu = 'b', 'orange', 'k'
-    fig = plt.figure(figsize=(8, 6))
-    plt.rc('font', **font)
-    plt.rc('legend', **legendfont)
+        color_astro, color_atm_nu, color_atm_mu = 'b', 'orange', 'k'
+        fig = plt.figure(figsize=(8, 6))
+        plt.rc('font', **font)
+        plt.rc('legend', **legendfont)
+        
+        plt.xscale('log')
+        plt.yscale('log')
+        plt.scatter(10.**Defaults.map_logE_center, intensity_astro * (10.**Defaults.map_logE_center)**2, marker='o', c=color_astro)
+        plt.scatter(10.**Defaults.map_logE_center, intensity_atm_nu * (10.**Defaults.map_logE_center)**2, marker='^', c=color_atm_nu)
+        plt.scatter(10.**Defaults.map_logE_center, intensity_atm_mu * (10.**Defaults.map_logE_center)**2, marker='s', c=color_atm_mu)
+        
+        atm_nu_mu = np.loadtxt(os.path.join(Defaults.NUXGAL_ANCIL_DIR, 'atm_nu_mu.txt'))
+        plt.plot(10.** atm_nu_mu[:, 0], atm_nu_mu[:, 1], lw=2, label=r'atm $\nu_\mu$', color=color_atm_nu)
 
-    plt.xscale('log')
-    plt.yscale('log')
-    plt.scatter(10.**Defaults.map_logE_center, intensity_astro * (10.**Defaults.map_logE_center)**2, marker='o', c=color_astro)
-    plt.scatter(10.**Defaults.map_logE_center, intensity_atm_nu * (10.**Defaults.map_logE_center)**2, marker='^', c=color_atm_nu)
-    plt.scatter(10.**Defaults.map_logE_center, intensity_atm_mu * (10.**Defaults.map_logE_center)**2, marker='s', c=color_atm_mu)
+        ene = np.logspace(1, 7, 40)
 
-
-    atm_nu_mu = np.loadtxt(os.path.join(Defaults.NUXGAL_ANCIL_DIR, 'atm_nu_mu.txt'))
-    plt.plot(10.** atm_nu_mu[:, 0], atm_nu_mu[:, 1], lw=2, label=r'atm $\nu_\mu$', color=color_atm_nu)
-
-    ene = np.logspace(1, 7, 40)
-
-    # Fig 24 of 1506.07981
-    plt.plot(ene, 50 / ((10.**4.6)**3.7) * (ene / 10.**4.6)**(-3.78) * ene **2, lw=2, label=r'atm $\mu$', color=color_atm_mu)
-
-    plt.plot(ene, 1.44e-18 * (ene/100e3)**(-2.28) * ene**2 * 1, lw=2, label=r'IceCube $\nu_\mu$', color=color_astro)
-    plt.xlabel('E [GeV]')
-    plt.ylabel(r'$E^2 \Phi\,[GeV\,cm^{-2}\,s^{-1}\,sr^{-1}]$')
-    plt.ylim(1e-9, 1e-2)
-    plt.xlim(1e2, 1e8)
-    plt.gcf().subplots_adjust(left=0.18, bottom=0.2, right=0.9)
-    plt.legend()
-    plt.savefig(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'testSED.pdf'))
-
+        # Fig 24 of 1506.07981
+        plt.plot(ene, 50 / ((10.**4.6)**3.7) * (ene / 10.**4.6)**(-3.78) * ene **2, lw=2, label=r'atm $\mu$', color=color_atm_mu)
+        
+        plt.plot(ene, 1.44e-18 * (ene/100e3)**(-2.28) * ene**2 * 1, lw=2, label=r'IceCube $\nu_\mu$', color=color_astro)
+        plt.xlabel('E [GeV]')
+        plt.ylabel(r'$E^2 \Phi\,[GeV\,cm^{-2}\,s^{-1}\,sr^{-1}]$')
+        plt.ylim(1e-9, 1e-2)
+        plt.xlim(1e2, 1e8)
+        plt.gcf().subplots_adjust(left=0.18, bottom=0.2, right=0.9)
+        plt.legend()
+        plt.savefig(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'testSED.pdf'))
 
 
-def checkPowerSpectrum():
+
+def test_PowerSpectrum():
     cf = Analyze()
     bgmap = np.zeros((Defaults.NEbin, Defaults.NPIXEL))
     for i in np.arange(Defaults.NEbin):
@@ -115,29 +120,29 @@ def checkPowerSpectrum():
                                                      'eventmap_atm' + str(i)+'.fits'), verbose=False)
     cl_nu = cf.powerSpectrumFromCountsmap(bgmap)
 
-    fig = plt.figure(figsize=(8, 6))
-    plt.rc('font', **font)
-    plt.rc('legend', **legendfont)
+    if Utils.MAKE_TEST_PLOTS:
 
-    color = ['r', 'orange', 'limegreen', 'skyblue', 'mediumslateblue', 'purple', 'grey']
+        fig = plt.figure(figsize=(8, 6))
+        plt.rc('font', **font)
+        plt.rc('legend', **legendfont)
 
-    for i in np.arange(Defaults.NEbin):
-        plt.plot(cf.l_cl, cl_nu[i], label=str(i), color=color[i])
+        color = ['r', 'orange', 'limegreen', 'skyblue', 'mediumslateblue', 'purple', 'grey']
 
-    plt.plot(cf.l, cf.cl_galaxy, 'k--', lw=2)
-    plt.xlabel('l')
-    plt.ylabel('Cl')
-    plt.yscale('log')
-    plt.xscale('log')
-    plt.ylim(1e-8, 10)
-    plt.gcf().subplots_adjust(left=0.18, top=0.9, right=0.9)
-    plt.legend(ncol=2)
-    plt.savefig(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'testPowerSpectrum_atm.pdf'))
+        for i in np.arange(Defaults.NEbin):
+            plt.plot(cf.l_cl, cl_nu[i], label=str(i), color=color[i])
+
+        plt.plot(cf.l, cf.cl_galaxy, 'k--', lw=2)
+        plt.xlabel('l')
+        plt.ylabel('Cl')
+        plt.yscale('log')
+        plt.xscale('log')
+        plt.ylim(1e-8, 10)
+        plt.gcf().subplots_adjust(left=0.18, top=0.9, right=0.9)
+        plt.legend(ncol=2)
+        plt.savefig(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'testPowerSpectrum_atm.pdf'))
 
 
-
-
-def checkCrossCorrelation():
+def test_CrossCorrelation():
     cf = Analyze()
     eg = EventGenerator()
     bgmap = eg.atmEvent(1.)
@@ -152,33 +157,31 @@ def checkCrossCorrelation():
     countsmap = bgmap + astromap
     w_cross = cf.crossCorrelationFromCountsmap(countsmap)
 
+    if Utils.MAKE_TEST_PLOTS:
 
+        fig = plt.figure(figsize=(8, 6))
+        plt.rc('font', **font)
+        plt.rc('legend', **legendfont)
 
-    fig = plt.figure(figsize=(8, 6))
-    plt.rc('font', **font)
-    plt.rc('legend', **legendfont)
+        plt.xscale('log')
+        plt.yscale('log')
+        plt.plot(cf.l, cf.cl_galaxy, color='k', label='galaxy cl', lw=2)
+        color = ['r', 'orange', 'limegreen', 'skyblue', 'mediumslateblue', 'purple', 'grey']
 
-    plt.xscale('log')
-    plt.yscale('log')
-    plt.plot(cf.l, cf.cl_galaxy, color='k', label='galaxy cl', lw=2)
-    color = ['r', 'orange', 'limegreen', 'skyblue', 'mediumslateblue', 'purple', 'grey']
+        for i in np.arange(Defaults.NEbin):
+            plt.plot(cf.l_cl, np.abs(w_cross[i]), label=str(i), color=color[i])
 
-    for i in np.arange(Defaults.NEbin):
-        plt.plot(cf.l_cl, np.abs(w_cross[i]), label=str(i), color=color[i])
-
-    plt.xlabel('l')
-    plt.ylabel('Cl')
-    plt.ylim(1e-8, 10)
-    plt.gcf().subplots_adjust(left=0.18, top=0.9, right=0.9)
-    plt.legend(ncol=2)
-    plt.savefig(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'testWcross.pdf'))
-
-
+        plt.xlabel('l')
+        plt.ylabel('Cl')
+        plt.ylim(1e-8, 10)
+        plt.gcf().subplots_adjust(left=0.18, top=0.9, right=0.9)
+        plt.legend(ncol=2)
+        plt.savefig(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'testWcross.pdf'))
 
 # --- EventGenerator tests ---
 
 
-def astroEvent_galaxyTest(seed_g=42):
+def astroEvent_galaxy(seed_g=42):
     eg = EventGenerator()
     # generate density from galaxy cl
     cl_galaxy_file = np.loadtxt(os.path.join(Defaults.NUXGAL_ANCIL_DIR, 'Cl_ggRM.dat'))
@@ -195,18 +198,20 @@ def astroEvent_galaxyTest(seed_g=42):
         #N_2012_Aeffmax[i] = dN_dE_astro(10.**map_logE_center[i]) * (Aeff_max[i] * 1E4) * (333 * 24. * 3600) * 4 * np.pi * (10.**map_logE_center[i] * np.log(10.) * dlogE) * 1
     eventmap = eg.astroEvent_galaxy(density_g, N_2012_Aeffmax, True)
 
-    if seed_g == 42:
-        filename = os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'eventmap_astro')
-    else:
-        filename = os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'eventmap_astro_nonGalaxy')
-    for i in np.arange(Defaults.NEbin):
-        fig = plt.figure(figsize=(8, 6))
-        hp.mollview(eventmap[i])
-        plt.savefig(filename + str(i) + '.pdf')
-        hp.fitsfunc.write_map(filename + str(i)+'.fits', eventmap[i], overwrite=True)
+    if Utils.MAKE_TEST_PLOTS:
+        if seed_g == 42:
+            filename = os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'eventmap_astro')
+        else:
+            filename = os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'eventmap_astro_nonGalaxy')
+
+        for i in np.arange(Defaults.NEbin):
+            fig = plt.figure(figsize=(8, 6))
+            hp.mollview(eventmap[i])
+            plt.savefig(filename + str(i) + '.pdf')
+            hp.fitsfunc.write_map(filename + str(i)+'.fits', eventmap[i], overwrite=True)
 
 
-def atmBG_coszenith_test(energyBin=0):
+def atmBG_coszenith(energyBin=0):
     eg = EventGenerator()
     N_coszenith = np.loadtxt(os.path.join(Defaults.NUXGAL_IRF_DIR, 'N_coszenith'+str(energyBin)+'.txt'))
     recovered_values = eg.atmBG_coszenith(int(np.sum(N_coszenith[:, 1])), energyBin)
@@ -215,37 +220,35 @@ def atmBG_coszenith_test(energyBin=0):
     if len(index) > 1:
         print(index, recovered_values[index])
 
+    if Utils.MAKE_TEST_PLOTS:
+        fig = plt.figure(figsize=(8, 6))
+        plt.plot(N_coszenith[:, 0], N_coszenith[:, 1], lw=2, label='data')
+        plt.hist(recovered_values, N_coszenith[:, 0], label='mock')
+        
+        plt.xlabel(r'$\cos\,\theta$')
+        plt.ylabel('Number of counts')
+        plt.legend()
+        plt.savefig(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'N_coszenith_test'+str(energyBin)+'.pdf'))
 
-    fig = plt.figure(figsize=(8, 6))
-    plt.plot(N_coszenith[:, 0], N_coszenith[:, 1], lw=2, label='data')
-    plt.hist(recovered_values, N_coszenith[:, 0], label='mock')
 
-    plt.xlabel(r'$\cos\,\theta$')
-    plt.ylabel('Number of counts')
-    plt.legend()
-    plt.savefig(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'N_coszenith_test'+str(energyBin)+'.pdf'))
-
-
-def atmBGtest():
+def atmBG():
     eg = EventGenerator()
     eventmap = eg.atmEvent(1.)
 
-    for i in np.arange(Defaults.NEbin):
-        fig = plt.figure(figsize=(8, 6))
-        hp.mollview(eventmap[i])
-        plt.savefig(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'eventmap_atm' + str(i) + '.pdf'))
-        hp.fitsfunc.write_map(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'eventmap_atm' + str(i)+'.fits'), eventmap[i], overwrite=True)
+    if Utils.MAKE_TEST_PLOTS:
+        for i in np.arange(Defaults.NEbin):
+            fig = plt.figure(figsize=(8, 6))
+            hp.mollview(eventmap[i])
+            plt.savefig(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'eventmap_atm' + str(i) + '.pdf'))
+            hp.fitsfunc.write_map(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'eventmap_atm' + str(i)+'.fits'), eventmap[i], overwrite=True)
 
 
-
-
-
-def checkEventGenerator():
+def test_EventGenerator():
     for i in range(0, 5):
-        atmBG_coszenith_test(i)
+        atmBG_coszenith(i)
 
-    astroEvent_galaxyTest()
-    atmBGtest()
+    astroEvent_galaxy()
+    atmBG()
 
 #astroEvent_galaxyTest(59)
 
@@ -270,12 +273,9 @@ def generateGalaxy():
     hp.fitsfunc.write_map(os.path.join(Defaults.NUXGAL_ANCIL_DIR,
                                        'galaxySampleOverdensity.fits'), overdensityMap_g, overwrite=True)
 
-#generateGalaxy()
 
 
-
-
-def w_cross_plot():
+def test_w_cross_plot():
     cf = Analyze()
 
     astromap = np.zeros((Defaults.NEbin, Defaults.NPIXEL))
@@ -331,31 +331,28 @@ def w_cross_plot():
     print('total', chi_square, (Defaults.NEbin - 2) * len(w_cross[0][chi_square_index:]), significance(chi_square, (Defaults.NEbin - 2) * len(w_cross[0][chi_square_index:])))
     print('------------------')
 
+    if Utils.MAKE_TEST_PLOTS:
+
+        color = ['r', 'orange', 'limegreen', 'skyblue', 'mediumslateblue', 'purple', 'grey']
+        for i in np.arange(Defaults.NEbin):
+            fig = plt.figure(figsize=(8, 6))
+            plt.rc('font', **font)
+            plt.rc('legend', **legendfont)
+            plt.xscale('log')
+            #plt.yscale('log')
+
+            plt.plot(cf.l_cl, w_cross[i], label=str(i), color=color[i])
+            plt.errorbar(cf.l_cl, w_cross_mean[i], yerr=w_cross_std[i], color='grey')
+            
+            plt.xlabel('l')
+            plt.ylabel('Cl')
+            #plt.ylim(1e-8, 10)
+            plt.gcf().subplots_adjust(left=0.18, top=0.9, right=0.9)
+            plt.legend(ncol=2)
+            plt.savefig(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'w_cross'+str(i)+'.pdf'))
 
 
-    color = ['r', 'orange', 'limegreen', 'skyblue', 'mediumslateblue', 'purple', 'grey']
-    for i in np.arange(Defaults.NEbin):
-        fig = plt.figure(figsize=(8, 6))
-        plt.rc('font', **font)
-        plt.rc('legend', **legendfont)
-        plt.xscale('log')
-        #plt.yscale('log')
-
-        plt.plot(cf.l_cl, w_cross[i], label=str(i), color=color[i])
-        plt.errorbar(cf.l_cl, w_cross_mean[i], yerr=w_cross_std[i], color='grey')
-
-        plt.xlabel('l')
-        plt.ylabel('Cl')
-        #plt.ylim(1e-8, 10)
-        plt.gcf().subplots_adjust(left=0.18, top=0.9, right=0.9)
-        plt.legend(ncol=2)
-        plt.savefig(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'w_cross'+str(i)+'.pdf'))
-
-
-#w_cross_plot()
-
-
-def w_cross_sigma():
+def test_w_cross_sigma():
     cf = Analyze()
     # get standard derivation
     w_cross_mean, w_cross_std = cf.crossCorrelation_atm_std(50)
@@ -399,22 +396,26 @@ def w_cross_sigma():
         sigma_Ebin_signal[i] = significance(chi_square_Ebin[i] / N_realization, len(w_cross[0][chi_square_index:]))
 
 
-    fig = plt.figure(figsize=(8, 6))
-    plt.rc('font', **font)
-    plt.rc('legend', **legendfont)
-    plt.scatter(Defaults.map_logE_center, sigma_Ebin, marker='o', c='k', label='atm')
-    plt.scatter(Defaults.map_logE_center, sigma_Ebin_signal, marker='x', c='r', label='atm+astro')
-    plt.xlim(1.5, 7.5)
-    plt.xlabel(r'$\log (E / {\rm GeV})$')
-    plt.ylabel('Significance')
-    plt.legend()
-    plt.savefig(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'sigma_E.pdf'))
+    if Utils.MAKE_TEST_PLOTS:
+        fig = plt.figure(figsize=(8, 6))
+        plt.rc('font', **font)
+        plt.rc('legend', **legendfont)
+        plt.scatter(Defaults.map_logE_center, sigma_Ebin, marker='o', c='k', label='atm')
+        plt.scatter(Defaults.map_logE_center, sigma_Ebin_signal, marker='x', c='r', label='atm+astro')
+        plt.xlim(1.5, 7.5)
+        plt.xlabel(r'$\log (E / {\rm GeV})$')
+        plt.ylabel('Significance')
+        plt.legend()
+        plt.savefig(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'sigma_E.pdf'))
 
 
 
-checkEventGenerator()
-#checkSyntheticData()
-checkPowerSpectrum()
-checkCrossCorrelation()
+if __name__=='__main__':
+    test_EventGenerator()
+    #test_SyntheticData()
+    test_PowerSpectrum()
+    test_checkCrossCorrelation()
+    test_w_cross_plot()
+    test_w_cross_sigma()
+    
 
-w_cross_sigma()

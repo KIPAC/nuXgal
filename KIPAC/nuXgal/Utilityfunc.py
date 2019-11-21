@@ -23,7 +23,7 @@ def density_cl(cl, nside, randomSeed):
 def poisson_sampling(hpmap, n_sample):
     norm_map = np.exp(hpmap)
     norm_map *= (n_sample/norm_map.sum())
-    count_map = np.random.poisson(norm_map.clip(0, np.nan))
+    count_map = np.random.poisson(norm_map.clip(0, np.inf))
     return count_map
 
 
