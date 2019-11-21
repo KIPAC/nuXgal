@@ -20,7 +20,7 @@ M2_TO_CM2 = 1e4 # Conversion for effective area
 if 'NUXGAL_DIR' in os.environ:
     NUXGAL_DIR = os.environ['NUXGAL_DIR']
 else:
-    NUXGAL_DIR = '.'
+    NUXGAL_DIR = '..'
 print("Using %s for NUXGAL_DIR" % NUXGAL_DIR)
 
 NUXGAL_ANCIL_DIR = os.path.join(NUXGAL_DIR, 'data', 'ancil')
