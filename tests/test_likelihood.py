@@ -8,7 +8,7 @@ import numpy as np
 import emcee
 import corner
  
-from KIPAC.nuXgal.Likelihood import Likelihood
+#from KIPAC.nuXgal.Likelihood import Likelihood
 
 import matplotlib.pyplot as plt
 
@@ -160,8 +160,8 @@ def test_likelihood():
  
 
 
-testLnLDistribution_fdiff()
-testLnLDistribution_fgal()
+#testLnLDistribution_fdiff()
+#testLnLDistribution_fgal()
 
 if __name__ == '__main__':
 
