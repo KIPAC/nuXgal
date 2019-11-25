@@ -1,4 +1,3 @@
-
 import os
 
 import numpy as np
@@ -9,184 +8,41 @@ import healpy as hp
 
 from scipy import integrate
 
-import matplotlib.pyplot as plt
+from KIPAC.nuXgal import Analyze
 
-from KIPAC.nuXgal.Utilityfunc import significance
-
-from KIPAC.nuXgal.Analyze import Analyze
-
-from KIPAC.nuXgal.EventGenerator import EventGenerator
+from KIPAC.nuXgal import EventGenerator
 
 from KIPAC.nuXgal import Defaults
 
-from KIPAC.nuXgal.Utilityfunc import *
+from KIPAC.nuXgal import file_utils
 
-from . import Utils
+from KIPAC.nuXgal import hp_utils
 
+from KIPAC.nuXgal import FigureDict
 
-font = {'family':'Arial', 'weight':'normal', 'size': 20}
-legendfont = {'fontsize':18, 'frameon':False}
+from KIPAC.nuXgal import Utilityfunc
 
+from .Utils import MAKE_TEST_PLOTS
+
+astropath = os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'eventmap_astro{i}.fits')
+bgpath = os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'eventmap_atm{i}.fits')
+ggclpath = os.path.join(Defaults.NUXGAL_ANCIL_DIR, 'Cl_ggRM.dat')
+ggsamplepath = os.path.join(Defaults.NUXGAL_ANCIL_DIR, 'galaxySampleOverdensity.fits')
+testfigpath = os.path.join(Defaults.NUXGAL_PLOT_DIR, 'test')
 
 for dirname in [Defaults.NUXGAL_SYNTHETICDATA_DIR, Defaults.NUXGAL_PLOT_DIR]:
     try:
-        os.makedirs(dirname)
+        os.makedirs(dirname) 
     except OSError:
         pass
 
 
-def test_SyntheticData():
-
-    cf = Analyze()
-
-    # --- event -
-    countsmap = np.zeros((Defaults.NEbin, Defaults.NPIXEL))
-    for i in np.arange(Defaults.NEbin):
-        countsmap[i] = hp.fitsfunc.read_map(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,
-                                                         'eventmap_astro' + str(i)+'.fits'), verbose=False)
-    intensity_astro = cf.getIntensity(countsmap)
-
-
-    # --- atm -
-    exposuremap_theta, exposuremap_phi = hp.pixelfunc.pix2ang(Defaults.NSIDE, np.arange(hp.pixelfunc.nside2npix(Defaults.NSIDE)))
-
-    bgmap = np.zeros((Defaults.NEbin, Defaults.NPIXEL))
-    for i in np.arange(Defaults.NEbin):
-        bgmap[i] = hp.fitsfunc.read_map(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,
-                                                     'eventmap_atm' + str(i)+'.fits'), verbose=False)
-        #bgmap[i] = hp.fitsfunc.read_map(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,
-        #                                             'counts_atm' + str(i)+'.fits'), verbose=False)
-
-
-    # southern sky mask
-    mask_muon = np.where(exposuremap_theta > 85. / 180 * np.pi)
-    bgmap_nu = bgmap
-    for i in np.arange(Defaults.NEbin):
-        bgmap_nu[i][mask_muon] = 0.
-    intensity_atm_nu = cf.getIntensity(bgmap_nu)
-
-
-    bgmap = np.zeros((Defaults.NEbin, Defaults.NPIXEL))
-    for i in np.arange(Defaults.NEbin):
-        bgmap[i] = hp.fitsfunc.read_map(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,
-                                                     'eventmap_atm' + str(i)+'.fits'), verbose=False)
-
-
-    bgmap_mu = bgmap
-    # northern sky mask
-    mask_north = np.where(exposuremap_theta < 85. / 180 * np.pi)
-    for i in np.arange(Defaults.NEbin):
-        bgmap_mu[i][mask_north] = 0.
-    intensity_atm_mu = cf.getIntensity(bgmap_mu)
-
-
-    if Utils.MAKE_TEST_PLOTS:
-
-        color_astro, color_atm_nu, color_atm_mu = 'b', 'orange', 'k'
-        fig = plt.figure(figsize=(8, 6))
-        plt.rc('font', **font)
-        plt.rc('legend', **legendfont)
-        
-        plt.xscale('log')
-        plt.yscale('log')
-        plt.scatter(10.**Defaults.map_logE_center, intensity_astro * (10.**Defaults.map_logE_center)**2, marker='o', c=color_astro)
-        plt.scatter(10.**Defaults.map_logE_center, intensity_atm_nu * (10.**Defaults.map_logE_center)**2, marker='^', c=color_atm_nu)
-        plt.scatter(10.**Defaults.map_logE_center, intensity_atm_mu * (10.**Defaults.map_logE_center)**2, marker='s', c=color_atm_mu)
-        
-        atm_nu_mu = np.loadtxt(os.path.join(Defaults.NUXGAL_ANCIL_DIR, 'atm_nu_mu.txt'))
-        plt.plot(10.** atm_nu_mu[:, 0], atm_nu_mu[:, 1], lw=2, label=r'atm $\nu_\mu$', color=color_atm_nu)
-
-        ene = np.logspace(1, 7, 40)
-
-        # Fig 24 of 1506.07981
-        plt.plot(ene, 50 / ((10.**4.6)**3.7) * (ene / 10.**4.6)**(-3.78) * ene **2, lw=2, label=r'atm $\mu$', color=color_atm_mu)
-        
-        plt.plot(ene, 1.44e-18 * (ene/100e3)**(-2.28) * ene**2 * 1, lw=2, label=r'IceCube $\nu_\mu$', color=color_astro)
-        plt.xlabel('E [GeV]')
-        plt.ylabel(r'$E^2 \Phi\,[GeV\,cm^{-2}\,s^{-1}\,sr^{-1}]$')
-        plt.ylim(1e-9, 1e-2)
-        plt.xlim(1e2, 1e8)
-        plt.gcf().subplots_adjust(left=0.18, bottom=0.2, right=0.9)
-        plt.legend()
-        plt.savefig(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'testSED.pdf'))
-
-
-
-def test_PowerSpectrum():
-    cf = Analyze()
-    bgmap = np.zeros((Defaults.NEbin, Defaults.NPIXEL))
-    for i in np.arange(Defaults.NEbin):
-        bgmap[i] = hp.fitsfunc.read_map(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 
-                                                     'eventmap_atm' + str(i)+'.fits'), verbose=False)
-    cl_nu = cf.powerSpectrumFromCountsmap(bgmap)
-
-    if Utils.MAKE_TEST_PLOTS:
-
-        fig = plt.figure(figsize=(8, 6))
-        plt.rc('font', **font)
-        plt.rc('legend', **legendfont)
-
-        color = ['r', 'orange', 'limegreen', 'skyblue', 'mediumslateblue', 'purple', 'grey']
-
-        for i in np.arange(Defaults.NEbin):
-            plt.plot(cf.l_cl, cl_nu[i], label=str(i), color=color[i])
-
-        plt.plot(cf.l, cf.cl_galaxy, 'k--', lw=2)
-        plt.xlabel('l')
-        plt.ylabel('Cl')
-        plt.yscale('log')
-        plt.xscale('log')
-        plt.ylim(1e-8, 10)
-        plt.gcf().subplots_adjust(left=0.18, top=0.9, right=0.9)
-        plt.legend(ncol=2)
-        plt.savefig(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'testPowerSpectrum_atm.pdf'))
-
-
-def test_CrossCorrelation():
-    cf = Analyze()
-    eg = EventGenerator()
-    bgmap = eg.atmEvent(1.)
-
-    #bgmap = np.zeros((Defaults.NEbin, Defaults.NPIXEL))
-    #for i in np.arange(Defaults.NEbin):
-    #    bgmap[i] = hp.fitsfunc.read_map(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'eventmap_atm' + str(i)+'.fits'), verbose=False)
-    astromap = np.zeros((Defaults.NEbin, Defaults.NPIXEL))
-    for i in np.arange(Defaults.NEbin):
-        astromap[i] = hp.fitsfunc.read_map(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,
-                                                        'eventmap_astro' + str(i)+'.fits'), verbose=False)
-    countsmap = bgmap + astromap
-    w_cross = cf.crossCorrelationFromCountsmap(countsmap)
-
-    if Utils.MAKE_TEST_PLOTS:
-
-        fig = plt.figure(figsize=(8, 6))
-        plt.rc('font', **font)
-        plt.rc('legend', **legendfont)
-
-        plt.xscale('log')
-        plt.yscale('log')
-        plt.plot(cf.l, cf.cl_galaxy, color='k', label='galaxy cl', lw=2)
-        color = ['r', 'orange', 'limegreen', 'skyblue', 'mediumslateblue', 'purple', 'grey']
-
-        for i in np.arange(Defaults.NEbin):
-            plt.plot(cf.l_cl, np.abs(w_cross[i]), label=str(i), color=color[i])
-
-        plt.xlabel('l')
-        plt.ylabel('Cl')
-        plt.ylim(1e-8, 10)
-        plt.gcf().subplots_adjust(left=0.18, top=0.9, right=0.9)
-        plt.legend(ncol=2)
-        plt.savefig(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'testWcross.pdf'))
-
 # --- EventGenerator tests ---
-
-
 def astroEvent_galaxy(seed_g=42):
     eg = EventGenerator()
     # generate density from galaxy cl
-    cl_galaxy_file = np.loadtxt(os.path.join(Defaults.NUXGAL_ANCIL_DIR, 'Cl_ggRM.dat'))
-    cl_galaxy = cl_galaxy_file[:500]
-    density_g = density_cl(cl_galaxy * 0.6, Defaults.NSIDE, seed_g)
+    cl_galaxy = file_utils.read_cls_from_txt(ggclpath)[0]
+    density_g = Utilityfunc.density_cl(cl_galaxy * 0.6, Defaults.NSIDE, seed_g)
     density_g = np.exp(density_g) - 1.0
 
     # calculate expected event number using IceCube diffuse neutrino flux
@@ -194,53 +50,59 @@ def astroEvent_galaxy(seed_g=42):
     # total expected number of events before cut
     N_2012_Aeffmax = np.zeros(Defaults.NEbin)
     for i in np.arange(Defaults.NEbin):
-        N_2012_Aeffmax[i] = integrate.quad(dN_dE_astro, 10.**Defaults.map_logE_edge[i], 10.**Defaults.map_logE_edge[i+1])[0] * (eg.Aeff_max[i] * 1E4) * (333 * 24. * 3600) * 4 * np.pi
+        N_2012_Aeffmax[i] = integrate.quad(dN_dE_astro, Defaults.map_E_edge[i],
+                                           Defaults.map_E_edge[i+1])[0] * (eg.Aeff_max[i] * 1E4) * (333 * 24. * 3600) * 4 * np.pi
         #N_2012_Aeffmax[i] = dN_dE_astro(10.**map_logE_center[i]) * (Aeff_max[i] * 1E4) * (333 * 24. * 3600) * 4 * np.pi * (10.**map_logE_center[i] * np.log(10.) * dlogE) * 1
-    eventmap = eg.astroEvent_galaxy(density_g, N_2012_Aeffmax, True)
 
-    if Utils.MAKE_TEST_PLOTS:
-        if seed_g == 42:
-            filename = os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'eventmap_astro')
-        else:
-            filename = os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'eventmap_astro_nonGalaxy')
+    eventmap = eg.astroEvent_galaxy(density_g, N_2012_Aeffmax)
+    if seed_g == 42:
+        basekey = 'eventmap_astro'
+    else:
+        basekey = 'eventmap_astro_nonGalaxy'
 
-        for i in np.arange(Defaults.NEbin):
-            fig = plt.figure(figsize=(8, 6))
-            hp.mollview(eventmap[i])
-            plt.savefig(filename + str(i) + '.pdf')
-            hp.fitsfunc.write_map(filename + str(i)+'.fits', eventmap[i], overwrite=True)
+    filename_format = os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, basekey + '{i}.fits')
+    file_utils.write_maps_from_fits(eventmap, filename_format)
+
+    if MAKE_TEST_PLOTS:
+        figs = FigureDict()
+        figs.mollview_maps(basekey, eventmap)
+        figs.save_all(testfigpath, 'pdf')
+
+
 
 
 def atmBG_coszenith(energyBin=0):
     eg = EventGenerator()
-    N_coszenith = np.loadtxt(os.path.join(Defaults.NUXGAL_IRF_DIR, 'N_coszenith'+str(energyBin)+'.txt'))
+    N_coszenith = eg.atm_gen.coszenith()[energyBin]
     recovered_values = eg.atmBG_coszenith(int(np.sum(N_coszenith[:, 1])), energyBin)
 
     index = np.where(np.abs(recovered_values) > 1)
     if len(index) > 1:
         print(index, recovered_values[index])
 
-    if Utils.MAKE_TEST_PLOTS:
-        fig = plt.figure(figsize=(8, 6))
-        plt.plot(N_coszenith[:, 0], N_coszenith[:, 1], lw=2, label='data')
-        plt.hist(recovered_values, N_coszenith[:, 0], label='mock')
-        
-        plt.xlabel(r'$\cos\,\theta$')
-        plt.ylabel('Number of counts')
-        plt.legend()
-        plt.savefig(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'N_coszenith_test'+str(energyBin)+'.pdf'))
+    if MAKE_TEST_PLOTS:
+        figs = FigureDict()
+        figkey = 'N_coszenith'+str(energyBin)
+        o_dict = figs.setup_figure(figkey, xlabel=r'$\cos\,\theta$', ylabel='Number of counts', figsize=(8, 6))
+        fig = o_dict['fig']
+        axes = o_dict['axes']
+        axes.plot(N_coszenith[:, 0], N_coszenith[:, 1], lw=2, label='data')
+        axes.hist(recovered_values, N_coszenith[:, 0], label='mock')
+        fig.legend()
+        figs.save_all(testfigpath, 'pdf')
+
 
 
 def atmBG():
     eg = EventGenerator()
     eventmap = eg.atmEvent(1.)
 
-    if Utils.MAKE_TEST_PLOTS:
-        for i in np.arange(Defaults.NEbin):
-            fig = plt.figure(figsize=(8, 6))
-            hp.mollview(eventmap[i])
-            plt.savefig(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'eventmap_atm' + str(i) + '.pdf'))
-            hp.fitsfunc.write_map(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'eventmap_atm' + str(i)+'.fits'), eventmap[i], overwrite=True)
+    file_utils.write_maps_from_fits(eventmap, bgpath)
+
+    if MAKE_TEST_PLOTS:
+        figs = FigureDict()
+        figs.mollview_maps('eventmap_atm', eventmap)
+        figs.save_all(testfigpath, 'pdf')
 
 
 def test_EventGenerator():
@@ -250,7 +112,98 @@ def test_EventGenerator():
     astroEvent_galaxy()
     atmBG()
 
-#astroEvent_galaxyTest(59)
+
+
+def test_SyntheticData():
+
+    cf = Analyze()
+
+    # --- event -
+
+    countsmap = file_utils.read_maps_from_fits(astropath, Defaults.NEbin)
+    intensity_astro = cf.getIntensity(countsmap)
+
+    # --- atm -
+    exposuremap_theta, _ = hp.pixelfunc.pix2ang(Defaults.NSIDE,
+                                                np.arange(hp.pixelfunc.nside2npix(Defaults.NSIDE)))
+
+    bgmap = file_utils.read_maps_from_fits(bgpath, Defaults.NEbin)
+
+    # southern sky mask
+    mask_muon = np.where(exposuremap_theta > 85. / 180 * np.pi)
+    bgmap_nu = hp_utils.vector_apply_mask(bgmap, mask_muon, copy=True)
+    intensity_atm_nu = cf.getIntensity(bgmap_nu)
+
+    # northern sky mask
+    mask_north = np.where(exposuremap_theta < 85. / 180 * np.pi)
+    bgmap_mu = hp_utils.vector_apply_mask(bgmap, mask_north, copy=True)
+    intensity_atm_mu = cf.getIntensity(bgmap_mu)
+
+    if MAKE_TEST_PLOTS:
+
+        figs = FigureDict()
+
+        intensities = [intensity_astro, intensity_atm_nu, intensity_atm_mu]
+
+        plot_dict = dict(colors=['b', 'orange', 'k'],
+                         markers=['o', '^', 's'])
+
+        figs.plot_intesity_E2('SED', Defaults.map_E_center, intensities, **plot_dict)
+
+
+        #atm_nu_mu = np.loadtxt(os.path.join(Defaults.NUXGAL_ANCIL_DIR, 'atm_nu_mu.txt'))
+        #plt.plot(10.** atm_nu_mu[:, 0], atm_nu_mu[:, 1], lw=2, label=r'atm $\nu_\mu$', color=color_atm_nu)
+
+        #ene = np.logspace(1, 7, 40)
+
+        # Fig 24 of 1506.07981
+        #plt.plot(ene, 50 / ((10.**4.6)**3.7) * (ene / 10.**4.6)**(-3.78) * ene **2, lw=2, label=r'atm $\mu$', color=color_atm_mu)
+
+        #plt.plot(ene, 1.44e-18 * (ene/100e3)**(-2.28) * ene**2 * 1, lw=2, label=r'IceCube $\nu_\mu$', color=color_astro)
+        #plt.legend()
+        figs.save_all(testfigpath, 'pdf')
+
+
+def test_PowerSpectrum():
+
+    cf = Analyze()
+
+    bgmap = file_utils.read_maps_from_fits(bgpath, Defaults.NEbin)
+    cl_nu = cf.powerSpectrumFromCountsmap(bgmap)
+
+    if MAKE_TEST_PLOTS:
+
+        figs = FigureDict()
+        color = ['r', 'orange', 'limegreen', 'skyblue', 'mediumslateblue', 'purple', 'grey']
+
+        figs.plot_cl('PowerSpectrum_atm', cf.l_cl, cl_nu,
+                     xlabel="l", ylavel=r'$C_{l}$', figsize=(8, 6),
+                     colors=color)
+        figs.save_all(testfigpath, 'pdf')
+
+
+def test_CrossCorrelation():
+    cf = Analyze()
+    eg = EventGenerator()
+    bgmap = eg.atmEvent(1.)
+
+    astromap = file_utils.read_maps_from_fits(astropath, Defaults.NEbin)
+    countsmap = bgmap + astromap
+    w_cross = cf.crossCorrelationFromCountsmap(countsmap)
+
+    if MAKE_TEST_PLOTS:
+
+        figs = FigureDict()
+        color = ['r', 'orange', 'limegreen', 'skyblue', 'mediumslateblue', 'purple', 'grey']
+
+        o_dict = figs.setup_figure('Wcross', xlabel="l", ylavel=r'$C_{l}$', figsize=(8, 6))
+        axes = o_dict['axes']
+        axes.plot(cf.l, cf.cl_galaxy, color='k', label='galaxy cl', lw=2)
+        figs.plot_cl('Wcross', cf.l_cl, np.abs(w_cross),
+                     xlabel="l", ylavel=r'$C_{l}$', figsize=(8, 6),
+                     colors=color)
+        figs.save_all(testfigpath, 'pdf')
+
 
 
 
@@ -258,30 +211,24 @@ def test_EventGenerator():
 
 # generate galaxy sample
 def generateGalaxy():
-    NSIDE = 128
-    randomSeed = 42
-    l_cl = np.arange(1, 3 * NSIDE + 1)
-    cl_galaxy_file = np.loadtxt(os.path.join(Defaults.NUXGAL_ANCIL_DIR,
-                                             'Cl_ggRM.dat'))
-    cl_galaxy = cl_galaxy_file[:500]
 
-    density_g = density_cl(cl_galaxy, NSIDE, randomSeed)
+    randomSeed = 42
+
+    cl_galaxy = file_utils.read_cls_from_txt(ggclpath)[0]
+
+    density_g = Utilityfunc.density_cl(cl_galaxy, Defaults.NSIDE, randomSeed)
     density_g = np.exp(density_g) - 1.0
     N_g = 2000000
-    events_map_g = poisson_sampling(density_g, N_g)
-    overdensityMap_g = overdensityMap(events_map_g)
-    hp.fitsfunc.write_map(os.path.join(Defaults.NUXGAL_ANCIL_DIR,
-                                       'galaxySampleOverdensity.fits'), overdensityMap_g, overwrite=True)
+    events_map_g = Utilityfunc.poisson_sampling(density_g, N_g)
+    overdensityMap_g = Utilityfunc.overdensityMap(events_map_g)
+    hp.fitsfunc.write_map(ggsamplepath, overdensityMap_g, overwrite=True)
 
 
 
 def test_w_cross_plot():
     cf = Analyze()
 
-    astromap = np.zeros((Defaults.NEbin, Defaults.NPIXEL))
-    for i in np.arange(Defaults.NEbin):
-        astromap[i] = hp.fitsfunc.read_map(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,
-                                                        'eventmap_astro' + str(i)+'.fits'), verbose=False)
+    astromap = file_utils.read_maps_from_fits(astropath, Defaults.NEbin)
 
     eg = EventGenerator()
     bgmap = eg.atmEvent(1.-0.003) # astro event is about 0.3% of total event
@@ -302,19 +249,19 @@ def test_w_cross_plot():
     for i in np.arange(Defaults.NEbin-2):
         chi_square_i = np.sum((w_cross[i][chi_square_index:] - w_cross_mean[i][chi_square_index:]) ** 2 / w_cross_std[i][chi_square_index:]**2)
         chi_square += chi_square_i
-        print(i, chi_square_i, len(w_cross[0][chi_square_index:]), significance(chi_square_i, len(w_cross[0][chi_square_index:])))
+        print(i, chi_square_i, len(w_cross[0][chi_square_index:]),
+              Utilityfunc.significance(chi_square_i, len(w_cross[0][chi_square_index:])))
 
 
-    print('total', chi_square, (Defaults.NEbin - 2) * len(w_cross[0][chi_square_index:]), significance(chi_square, (Defaults.NEbin - 2) * len(w_cross[0][chi_square_index:])))
+    print('total', chi_square, (Defaults.NEbin - 2) * len(w_cross[0][chi_square_index:]),
+          Utilityfunc.significance(chi_square, (Defaults.NEbin - 2) * len(w_cross[0][chi_square_index:])))
     print('------------------')
 
 
-    """
-    astromap = np.zeros((Defaults.NEbin, Defaults.NPIXEL))
-    for i in np.arange(Defaults.NEbin):
-         astromap[i] = hp.fitsfunc.read_map(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,
-                                                         'eventmap_astro_nonGalaxy' + str(i)+'.fits'), verbose=False)
-    """
+    #astromap = np.zeros((Defaults.NEbin, Defaults.NPIXEL))
+    #for i in np.arange(Defaults.NEbin):
+    #     astromap[i] = hp.fitsfunc.read_map(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,
+    #                                                     'eventmap_astro_nonGalaxy' + str(i)+'.fits'), verbose=False)
     countsmap = bgmap #+ astromap
     #print(np.sum(bgmap), np.sum(astromap))
     chi_square = 0
@@ -325,31 +272,25 @@ def test_w_cross_plot():
     for i in np.arange(Defaults.NEbin-2):
         chi_square_i = np.sum((w_cross[i][chi_square_index:] - w_cross_mean[i][chi_square_index:]) ** 2 / w_cross_std[i][chi_square_index:]**2)
         chi_square += chi_square_i
-        print(i, chi_square_i, len(w_cross[0][chi_square_index:]), significance(chi_square_i, len(w_cross[0][chi_square_index:])))
+        print(i, chi_square_i,
+              len(w_cross[0][chi_square_index:]),
+              Utilityfunc.significance(chi_square_i, len(w_cross[0][chi_square_index:])))
 
 
-    print('total', chi_square, (Defaults.NEbin - 2) * len(w_cross[0][chi_square_index:]), significance(chi_square, (Defaults.NEbin - 2) * len(w_cross[0][chi_square_index:])))
+    print('total', chi_square, (Defaults.NEbin - 2) * len(w_cross[0][chi_square_index:]),
+          Utilityfunc.significance(chi_square, (Defaults.NEbin - 2) * len(w_cross[0][chi_square_index:])))
     print('------------------')
 
-    if Utils.MAKE_TEST_PLOTS:
+    if MAKE_TEST_PLOTS:
 
+        figs = FigureDict()
         color = ['r', 'orange', 'limegreen', 'skyblue', 'mediumslateblue', 'purple', 'grey']
-        for i in np.arange(Defaults.NEbin):
-            fig = plt.figure(figsize=(8, 6))
-            plt.rc('font', **font)
-            plt.rc('legend', **legendfont)
-            plt.xscale('log')
-            #plt.yscale('log')
 
-            plt.plot(cf.l_cl, w_cross[i], label=str(i), color=color[i])
-            plt.errorbar(cf.l_cl, w_cross_mean[i], yerr=w_cross_std[i], color='grey')
-            
-            plt.xlabel('l')
-            plt.ylabel('Cl')
-            #plt.ylim(1e-8, 10)
-            plt.gcf().subplots_adjust(left=0.18, top=0.9, right=0.9)
-            plt.legend(ncol=2)
-            plt.savefig(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'w_cross'+str(i)+'.pdf'))
+        figs.plot_cl('w_cross', cf.l_cl, w_cross,
+                     xlabel="l", ylavel=r'$C_{l}$', figsize=(8, 6),
+                     colors=color, yerrs=[w_cross_mean, w_cross_std])
+
+        figs.save_all(testfigpath, 'pdf')
 
 
 def test_w_cross_sigma():
@@ -361,7 +302,7 @@ def test_w_cross_sigma():
     chi_square_index = 1
     chi_square_Ebin = np.zeros(Defaults.NEbin)
     N_realization = 10
-    for realization in range(N_realization):
+    for _ in range(N_realization):
         countsmap = eg.atmEvent(1.)
         w_cross = cf.crossCorrelationFromCountsmap(countsmap)
         for i in np.arange(Defaults.NEbin-2):
@@ -372,17 +313,16 @@ def test_w_cross_sigma():
     #print(chi_square_Ebin / N_realization)
     sigma_Ebin = np.zeros(Defaults.NEbin)
     for i in np.arange(Defaults.NEbin - 2):
-        sigma_Ebin[i] = significance(chi_square_Ebin[i] / N_realization, len(w_cross[0][chi_square_index:]))
+        sigma_Ebin[i] = Utilityfunc.significance(chi_square_Ebin[i] / N_realization,
+                                                 len(w_cross[0][chi_square_index:]))
         #print(sigma_Ebin[i], significance(chi_square_Ebin[i] / N_realization, len(w_cross[0][chi_square_index:])))
 
 
-    astromap = np.zeros((Defaults.NEbin, Defaults.NPIXEL))
-    for i in np.arange(Defaults.NEbin):
-        astromap[i] = hp.fitsfunc.read_map(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,
-                                                        'eventmap_astro' + str(i)+'.fits'), verbose=False)
+    astromap = file_utils.read_maps_from_fits(astropath, Defaults.NEbin)
+
     chi_square_Ebin = np.zeros(Defaults.NEbin)
     N_realization = 10
-    for realization in range(N_realization):
+    for _ in range(N_realization):
         countsmap = eg.atmEvent(1.-0.003) + astromap
         w_cross = cf.crossCorrelationFromCountsmap(countsmap)
         for i in np.arange(Defaults.NEbin-2):
@@ -393,29 +333,31 @@ def test_w_cross_sigma():
     #print(chi_square_Ebin / N_realization)
     sigma_Ebin_signal = np.zeros(Defaults.NEbin)
     for i in np.arange(Defaults.NEbin - 2):
-        sigma_Ebin_signal[i] = significance(chi_square_Ebin[i] / N_realization, len(w_cross[0][chi_square_index:]))
+        sigma_Ebin_signal[i] = Utilityfunc.significance(chi_square_Ebin[i] / N_realization,
+                                                        len(w_cross[0][chi_square_index:]))
 
 
-    if Utils.MAKE_TEST_PLOTS:
-        fig = plt.figure(figsize=(8, 6))
-        plt.rc('font', **font)
-        plt.rc('legend', **legendfont)
-        plt.scatter(Defaults.map_logE_center, sigma_Ebin, marker='o', c='k', label='atm')
-        plt.scatter(Defaults.map_logE_center, sigma_Ebin_signal, marker='x', c='r', label='atm+astro')
-        plt.xlim(1.5, 7.5)
-        plt.xlabel(r'$\log (E / {\rm GeV})$')
-        plt.ylabel('Significance')
-        plt.legend()
-        plt.savefig(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'sigma_E.pdf'))
+    if MAKE_TEST_PLOTS:
+
+        figs = FigureDict()
+
+        o_dict = figs.setup_figure('sigma_E',
+                                   xlabel=r'$\log (E / {\rm GeV})$',
+                                   ylabel='Significance', figsize=(8, 6))
+        fig = o_dict['fig']
+        axes = o_dict['axes']
+
+        axes.set_xlim(1.5, 7.5)
+        axes.scatter(Defaults.map_logE_center, sigma_Ebin, marker='o', c='k', label='atm')
+        axes.scatter(Defaults.map_logE_center, sigma_Ebin_signal, marker='x', c='r', label='atm+astro')
+        fig.legend()
+        figs.save_all(testfigpath, 'pdf')
 
 
-
-if __name__=='__main__':
+if __name__ == '__main__':
     test_EventGenerator()
-    #test_SyntheticData()
+    test_SyntheticData()
     test_PowerSpectrum()
-    test_checkCrossCorrelation()
+    test_CrossCorrelation()
     test_w_cross_plot()
     test_w_cross_sigma()
-    
-
