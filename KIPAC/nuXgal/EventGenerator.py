@@ -44,7 +44,7 @@ class EventGenerator():
         nevts = np.loadtxt(nevents_path)
         nastro = 0.003 * nevts
 
-        gg_overdensity = hp.fitsfunc.read_map(gg_sample_path)
+        gg_overdensity = hp.fitsfunc.read_map(gg_sample_path, verbose=Defaults.VERBOSE)
         gg_pdf = 1. + gg_overdensity
         gg_pdf /= gg_pdf.sum()
 
@@ -62,7 +62,7 @@ class EventGenerator():
         """Astrophysical event generator"""
         return self._astro_gen
 
-    def astroEvent_galaxy(self, f_gal, intrinsicCounts):
+    def astroEvent_galaxy(self, f_gal, intrinsicCounts, normalized_counts_map, **kwargs):
         """Generate astrophysical event maps from a galaxy
         distribution and a number of intrinsice events
 
@@ -82,8 +82,7 @@ class EventGenerator():
         #self._astro_gen.pdf.set_value(pdf, clear_parent=False)
         self._astro_gen.f_gal = f_gal
         self._astro_gen.nevents_expected.set_value(intrinsicCounts, clear_parent=False)
-
-        return self._astro_gen.generate_event_maps(1)[0]
+        return self._astro_gen.generate_event_maps(1, normalized_counts_map, **kwargs)[0]
 
 
     def astroEvent_galaxy_powerlaw(self, density, Ntotal, alpha, emin=1e2, emax=1e9):

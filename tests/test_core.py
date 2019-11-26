@@ -22,8 +22,7 @@ from KIPAC.nuXgal import FigureDict
 
 from KIPAC.nuXgal import Utilityfunc
 
-#from .Utils import
-MAKE_TEST_PLOTS = True
+from Utils import MAKE_TEST_PLOTS
 
 astropath = os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'eventmap_astro{i}.fits')
 bgpath = os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'eventmap_atm{i}.fits')
@@ -37,15 +36,34 @@ for dirname in [Defaults.NUXGAL_SYNTHETICDATA_DIR, Defaults.NUXGAL_PLOT_DIR]:
     except OSError:
         pass
 
+randomSeed_g = 42
+
+
+# generate galaxy sample
+def generateGalaxy():
+
+    randomSeed = randomSeed_g
+
+    cl_galaxy = file_utils.read_cls_from_txt(ggclpath)[0]
+    np.random.seed(randomSeed)
+    density_g = hp.sphtfunc.synfast(cl_galaxy, Defaults.NSIDE)
+    #density_g = Utilityfunc.density_cl(cl_galaxy, Defaults.NSIDE, randomSeed)
+    
+    density_g = np.exp(density_g) #- 1.0
+    #print (np.where(density_g < 1))
+    density_g /= density_g.sum()
+    N_g = 2000000
+    expected_counts_map = density_g * N_g
+    events_map_g = np.random.poisson(expected_counts_map)
+    #events_map_g = Utilityfunc.poisson_sampling(density_g, N_g)
+    overdensityMap_g = Utilityfunc.overdensityMap(events_map_g)
+    hp.fitsfunc.write_map(ggsamplepath, overdensityMap_g, overwrite=True)
+
+
 
 # --- EventGenerator tests ---
 def astroEvent_galaxy(seed_g=42):
     eg = EventGenerator()
-    
-    # generate density from galaxy cl
-    #cl_galaxy = file_utils.read_cls_from_txt(ggclpath)[0]
-    #density_g = Utilityfunc.density_cl(cl_galaxy * 0.6, Defaults.NSIDE, seed_g)
-    #density_g = np.exp(density_g) - 1.0
     
     # calculate expected event number using IceCube diffuse neutrino flux
     dN_dE_astro = lambda E_GeV: 1.44E-18 * (E_GeV / 100e3)**(-2.28) # GeV^-1 cm^-2 s^-1 sr^-1, muon neutrino
@@ -56,7 +74,6 @@ def astroEvent_galaxy(seed_g=42):
                                            Defaults.map_E_edge[i+1])[0] * (eg.Aeff_max[i] * 1E4) * (333 * 24. * 3600) * 4 * np.pi
         #N_2012_Aeffmax[i] = dN_dE_astro(10.**map_logE_center[i]) * (Aeff_max[i] * 1E4) * (333 * 24. * 3600) * 4 * np.pi * (10.**map_logE_center[i] * np.log(10.) * dlogE) * 1
 
-    #eventmap = eg.astroEvent_galaxy(density_g, N_2012_Aeffmax)
     eventmap = eg.astroEvent_galaxy(0.6, N_2012_Aeffmax)
     if seed_g == 42:
         basekey = 'eventmap_astro'
@@ -165,7 +182,6 @@ def test_SyntheticData():
         #plt.plot(ene, 50 / ((10.**4.6)**3.7) * (ene / 10.**4.6)**(-3.78) * ene **2, lw=2, label=r'atm $\mu$', color=color_atm_mu)
 
         figs.plot('SED', ene, 1.44e-18 * (ene/100e3)**(-2.28) * ene**2 * 1, lw=2, label=r'IceCube $\nu_\mu$', color='b')
-        #plt.legend()
         figs.save_all(testfigpath, 'pdf')
 
 
@@ -191,12 +207,10 @@ def test_PowerSpectrum():
 def test_CrossCorrelation():
     cf = Analyze()
     eg = EventGenerator()
-    #bgmap = eg.atmEvent(1.)
-
     bgmap = file_utils.read_maps_from_fits(bgpath, Defaults.NEbin)
 
     astromap = file_utils.read_maps_from_fits(astropath, Defaults.NEbin)
-    countsmap = bgmap #+ astromap
+    countsmap = bgmap + astromap
     w_cross = cf.crossCorrelationFromCountsmap(countsmap)
 
     if MAKE_TEST_PLOTS:
@@ -212,160 +226,201 @@ def test_CrossCorrelation():
                      colors=color)
         figs.save_all(testfigpath, 'pdf')
 
-
-
-
-# --- Calculate cross correlation ---
-
-# generate galaxy sample
-def generateGalaxy():
-
-    randomSeed = 42
-
-    cl_galaxy = file_utils.read_cls_from_txt(ggclpath)[0]
-
-    density_g = Utilityfunc.density_cl(cl_galaxy, Defaults.NSIDE, randomSeed)
-    density_g = np.exp(density_g) - 1.0
-    N_g = 2000000
-    events_map_g = Utilityfunc.poisson_sampling(density_g, N_g)
-    overdensityMap_g = Utilityfunc.overdensityMap(events_map_g)
-    hp.fitsfunc.write_map(ggsamplepath, overdensityMap_g, overwrite=True)
-
-
-
-def test_w_cross_plot():
-    cf = Analyze()
-
-    astromap = file_utils.read_maps_from_fits(astropath, Defaults.NEbin)
-
+def getEventNumberEbin(f_diff):
     eg = EventGenerator()
-    bgmap = eg.atmEvent(1.-0.003) # astro event is about 0.3% of total event
-    countsmap = bgmap + astromap
-    #print(np.sum(bgmap), np.sum(astromap))
 
-    w_cross = cf.crossCorrelationFromCountsmap(countsmap)
+    # calculate expected event number using IceCube diffuse neutrino flux
+    dN_dE_astro = lambda E_GeV: 1.44E-18 * (E_GeV / 100e3)**(-2.28) # GeV^-1 cm^-2 s^-1 sr^-1, muon neutrino
+    # total expected number of events before cut
+    N_2012_Aeffmax = np.zeros(Defaults.NEbin)
+    for i in np.arange(Defaults.NEbin):
+        N_2012_Aeffmax[i] = integrate.quad(dN_dE_astro, Defaults.map_E_edge[i],
+                                           Defaults.map_E_edge[i+1])[0] * (eg.Aeff_max[i] * 1E4) * (333 * 24. * 3600) * 4 * np.pi * f_diff
+    return N_2012_Aeffmax
 
-    # get standard derivation
-    w_cross_mean, w_cross_std = cf.crossCorrelation_atm_std(50)
+def test_MeanCrossCorrelation(N_realization = 50, f_gal = 0.6, f_diff=1):
+    cf = Analyze()
+    eg = EventGenerator()
+    N_2012_Aeffmax = getEventNumberEbin(f_diff)
+    
+    np.random.seed(randomSeed_g)
+    density_nu = hp.sphtfunc.synfast(cf.cl_galaxy * 0.6, Defaults.NSIDE)
+    density_nu = np.exp(density_nu)
+    density_nu /= density_nu.sum() # a unique neutrino source distribution that shares the randomness of density_g
+    
+    w_cross_array = np.zeros((N_realization, Defaults.NEbin, Defaults.NCL))
+    for i in range(N_realization):
+        if i % 100 == 0:
+            print(i)
+        countsmap = eg.astroEvent_galaxy(f_gal, N_2012_Aeffmax, density_nu)
 
-    chi_square_index = 1
-    chi_square = 0
+        for j in range(Defaults.NEbin):
+            overdensityMap = Utilityfunc.overdensityMap(countsmap[j])
+            w_cross_array[i][j] = hp.anafast(cf.overdensityMap_g, overdensityMap)
+            #w_cross_array[i][j] = hp.anafast(overdensityMap)
 
-    print('------------------')
-    print('energy bin', 'chi2', 'dof', 'sigma')
+    w_cross_mean = np.mean(w_cross_array, axis=0)
+    w_cross_std = np.std(w_cross_array, axis=0)
 
-    for i in np.arange(Defaults.NEbin-2):
-        chi_square_i = np.sum((w_cross[i][chi_square_index:] - w_cross_mean[i][chi_square_index:]) ** 2 / w_cross_std[i][chi_square_index:]**2)
-        chi_square += chi_square_i
-        print(i, chi_square_i, len(w_cross[0][chi_square_index:]),
-              Utilityfunc.significance(chi_square_i, len(w_cross[0][chi_square_index:])))
-
-
-    print('total', chi_square, (Defaults.NEbin - 2) * len(w_cross[0][chi_square_index:]),
-          Utilityfunc.significance(chi_square, (Defaults.NEbin - 2) * len(w_cross[0][chi_square_index:])))
-    print('------------------')
-
-
-    #astromap = np.zeros((Defaults.NEbin, Defaults.NPIXEL))
-    #for i in np.arange(Defaults.NEbin):
-    #     astromap[i] = hp.fitsfunc.read_map(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,
-    #                                                     'eventmap_astro_nonGalaxy' + str(i)+'.fits'), verbose=False)
-    countsmap = bgmap #+ astromap
-    #print(np.sum(bgmap), np.sum(astromap))
-    chi_square = 0
-    w_cross = cf.crossCorrelationFromCountsmap(countsmap)
-    print('------------------')
-    print('energy bin', 'chi2', 'dof', 'sigma')
-
-    for i in np.arange(Defaults.NEbin-2):
-        chi_square_i = np.sum((w_cross[i][chi_square_index:] - w_cross_mean[i][chi_square_index:]) ** 2 / w_cross_std[i][chi_square_index:]**2)
-        chi_square += chi_square_i
-        print(i, chi_square_i,
-              len(w_cross[0][chi_square_index:]),
-              Utilityfunc.significance(chi_square_i, len(w_cross[0][chi_square_index:])))
-
-
-    print('total', chi_square, (Defaults.NEbin - 2) * len(w_cross[0][chi_square_index:]),
-          Utilityfunc.significance(chi_square, (Defaults.NEbin - 2) * len(w_cross[0][chi_square_index:])))
-    print('------------------')
-
+    cl_galaxy_sample = hp.sphtfunc.anafast(cf.overdensityMap_g)
+    
+ 
     if MAKE_TEST_PLOTS:
-
         figs = FigureDict()
         color = ['r', 'orange', 'limegreen', 'skyblue', 'mediumslateblue', 'purple', 'grey']
 
-        figs.plot_cl('w_cross', cf.l_cl, w_cross,
-                     xlabel="l", ylavel=r'$C_{l}$', figsize=(8, 6),
-                     colors=color, yerrs=[w_cross_mean, w_cross_std])
+        o_dict = figs.setup_figure('WcrossMean', xlabel="l", ylabel=r'$w$', figsize=(6, 8))
+        axes = o_dict['axes']
+        for i in range(Defaults.NEbin):
+            axes.plot(cf.l, cf.cl_galaxy * 10 ** (i*2), color='grey', lw=1)
+            axes.plot(cf.l_cl, cl_galaxy_sample * 10 ** (i*2), color='k', lw=2)
 
+            w_cross_mean[i] *= 10 ** (i*2)
+            w_cross_std[i] *= 10** (i * 2)
+        figs.plot_cl('WcrossMean', cf.l_cl, np.abs(w_cross_mean),
+                     xlabel="l", ylabel=r'$C_{l}$',
+                     colors=color, ymin=1e-7, ymax=1e10, lw=3)
+        figs.plot_cl('WcrossMean', cf.l_cl, np.abs(w_cross_std), linestyle='-.', colors=color,  ymin=1e-7, ymax=1e10, lw=1)
+        
         figs.save_all(testfigpath, 'pdf')
 
 
-def test_w_cross_sigma():
+
+def test_MeanCrossCorrelation_UniformAeff(N_realization = 50, f_gal = 0.6, f_diff=1):
     cf = Analyze()
-    # get standard derivation
-    w_cross_mean, w_cross_std = cf.crossCorrelation_atm_std(50)
-
     eg = EventGenerator()
-    chi_square_index = 1
-    chi_square_Ebin = np.zeros(Defaults.NEbin)
-    N_realization = 10
-    for _ in range(N_realization):
-        countsmap = eg.atmEvent(1.)
-        w_cross = cf.crossCorrelationFromCountsmap(countsmap)
-        for i in np.arange(Defaults.NEbin-2):
-            chi_square_i = np.sum((w_cross[i][chi_square_index:] - w_cross_mean[i][chi_square_index:]) ** 2 / w_cross_std[i][chi_square_index:]**2)
-            chi_square_Ebin[i] += chi_square_i
-            #print(i, chi_square_i)
-        #print('--------')
-    #print(chi_square_Ebin / N_realization)
-    sigma_Ebin = np.zeros(Defaults.NEbin)
-    for i in np.arange(Defaults.NEbin - 2):
-        sigma_Ebin[i] = Utilityfunc.significance(chi_square_Ebin[i] / N_realization,
-                                                 len(w_cross[0][chi_square_index:]))
-        #print(sigma_Ebin[i], significance(chi_square_Ebin[i] / N_realization, len(w_cross[0][chi_square_index:])))
+    w_cross_array = np.zeros((N_realization, Defaults.NEbin, Defaults.NCL))
+    N_2012_Aeffmax = getEventNumberEbin(f_diff)
+    kwargs = {'uniform_prob_reject' : 'True'}
+    
+    np.random.seed(randomSeed_g)
+    density_nu = hp.sphtfunc.synfast(cf.cl_galaxy * 0.6, Defaults.NSIDE)
+    density_nu = np.exp(density_nu)
+    density_nu /= density_nu.sum() # a unique neutrino source distribution that shares the randomness of density_g
+    
+    
+    for i in range(N_realization):
+        countsmap = eg.astroEvent_galaxy(f_gal, N_2012_Aeffmax, density_nu, **kwargs)
+
+        for j in range(Defaults.NEbin):
+            overdensityMap = Utilityfunc.overdensityMap(countsmap[j])
+
+            w_cross_array[i][j] = hp.anafast(cf.overdensityMap_g, overdensityMap)
+            #w_cross_array[i][j] = hp.anafast(overdensityMap)
+
+    w_cross_mean = np.mean(w_cross_array, axis=0)
+    w_cross_std = np.std(w_cross_array, axis=0)
+    
+    cl_galaxy_sample = hp.sphtfunc.anafast(cf.overdensityMap_g)
+    if MAKE_TEST_PLOTS:
+        figs = FigureDict()
+        color = ['r', 'orange', 'limegreen', 'skyblue', 'mediumslateblue', 'purple', 'grey']
+
+        o_dict = figs.setup_figure('WcrossMean_uniformAeff', xlabel="l", ylabel=r'$w$', figsize=(6, 8))
+        axes = o_dict['axes']
+        for i in range(Defaults.NEbin):
+            axes.plot(cf.l, cf.cl_galaxy * 10 ** (i*2), color='grey', lw=1)
+            axes.plot(cf.l_cl, cl_galaxy_sample * 10 ** (i*2), color='k', lw=2)
+
+            w_cross_mean[i] *= 10 ** (i*2)
+            w_cross_std[i] *= 10** (i * 2)
+        figs.plot_cl('WcrossMean_uniformAeff', cf.l_cl, np.abs(w_cross_mean),
+                     xlabel="l", ylabel=r'$C_{l}$',
+                     colors=color, ymin=1e-7, ymax=1e10, lw=3)
+        figs.plot_cl('WcrossMean_uniformAeff', cf.l_cl, np.abs(w_cross_std), linestyle='-.', colors=color,  ymin=1e-7, ymax=1e10, lw=1)
+        
+        figs.save_all(testfigpath, 'pdf')
 
 
-    astromap = file_utils.read_maps_from_fits(astropath, Defaults.NEbin)
 
-    chi_square_Ebin = np.zeros(Defaults.NEbin)
-    N_realization = 10
-    for _ in range(N_realization):
-        countsmap = eg.atmEvent(1.-0.003) + astromap
-        w_cross = cf.crossCorrelationFromCountsmap(countsmap)
-        for i in np.arange(Defaults.NEbin-2):
-            chi_square_i = np.sum((w_cross[i][chi_square_index:] - w_cross_mean[i][chi_square_index:]) ** 2 / w_cross_std[i][chi_square_index:]**2)
-            chi_square_Ebin[i] += chi_square_i
-            #print(i, chi_square_i)
-        #print('--------')
-    #print(chi_square_Ebin / N_realization)
-    sigma_Ebin_signal = np.zeros(Defaults.NEbin)
-    for i in np.arange(Defaults.NEbin - 2):
-        sigma_Ebin_signal[i] = Utilityfunc.significance(chi_square_Ebin[i] / N_realization,
-                                                        len(w_cross[0][chi_square_index:]))
+def test_w_CL():
+    """
+    Test of concept
+    """
+    randomSeed = 45
+    cf = Analyze()
+    cl_galaxy = file_utils.read_cls_from_txt(ggclpath)[0]
 
+    # map_1
+    np.random.seed(randomSeed)
+    density_g = hp.sphtfunc.synfast(cl_galaxy, Defaults.NSIDE)
+    density_g = np.exp(density_g)
+    density_g /= density_g.sum()
+    N_g = 20000000
+    events_map_g = np.random.poisson(density_g * N_g)
+    overdensityMap_g = Utilityfunc.overdensityMap(events_map_g)
+    powerSpectrum_g = hp.sphtfunc.anafast(overdensityMap_g)
+ 
+ 
+    # map_2 x N_realization
+    N_realization = 2000
+    w_cross_array = np.zeros((N_realization, Defaults.NCL))
+    powerSpectrum_nu_array = np.zeros((N_realization, Defaults.NCL))
+    
+    np.random.seed(randomSeed)
+    density_nu = hp.sphtfunc.synfast(cl_galaxy * 0.6, Defaults.NSIDE)
+    density_nu = np.exp(density_nu)
+    density_nu /= density_nu.sum()
+    #print (np.where((density_nu - density_g) != 0))
+    #density_nu = density_g
+    
+    for i in range(N_realization):
+        if i % 100 == 0:
+            print (i)
+        N_nu = 1000
+        events_map_nu = np.random.poisson(density_nu * N_nu)
+        overdensityMap_nu = Utilityfunc.overdensityMap(events_map_nu)
+        powerSpectrum_nu_array[i] = hp.sphtfunc.anafast(overdensityMap_nu)
+        w_cross_array[i] = hp.sphtfunc.anafast(overdensityMap_g, overdensityMap_nu)
+
+    powerSpectrum_nu_mean = np.mean(powerSpectrum_nu_array, axis=0)
+    #w_cross_mean = np.mean(np.abs(w_cross_array), axis=0)
+    w_cross_mean = np.mean(w_cross_array, axis=0)
 
     if MAKE_TEST_PLOTS:
-
         figs = FigureDict()
-
-        o_dict = figs.setup_figure('sigma_E',
-                                   xlabel=r'$\log (E / {\rm GeV})$',
-                                   ylabel='Significance', figsize=(8, 6))
+        o_dict = figs.setup_figure('test_w_CL', xlabel='$l$', ylabel='$C_l$', figsize=(8, 6))
         fig = o_dict['fig']
         axes = o_dict['axes']
+        axes.plot(cf.l, cl_galaxy, 'k-')
+        axes.plot(cf.l_cl,  powerSpectrum_g, lw=2, label='g')
+        axes.plot(cf.l_cl,  powerSpectrum_nu_mean, lw=2, label='nu')
+        axes.plot(cf.l_cl,  w_cross_mean, lw=2, label='nuXg')
+        fig.legend()
+        figs.save_all(testfigpath, 'pdf')
 
-        axes.set_xlim(1.5, 7.5)
-        axes.scatter(Defaults.map_logE_center, sigma_Ebin, marker='o', c='k', label='atm')
-        axes.scatter(Defaults.map_logE_center, sigma_Ebin_signal, marker='x', c='r', label='atm+astro')
+        figs = FigureDict()
+        o_dict = figs.setup_figure('test_w_CL_log', xlabel='$l$', ylabel='$C_l$', figsize=(8, 6))
+        fig = o_dict['fig']
+        axes = o_dict['axes']
+        axes.set_yscale('log')
+        axes.set_xscale('log')
+        axes.set_ylim(3e-6, 3e-4)
+        axes.plot(cf.l, cl_galaxy, 'k-')
+        axes.plot(cf.l, cl_galaxy * 0.6, 'k-')
+        axes.plot(cf.l, cl_galaxy * 0.6 ** 0.5, 'k-')
+        axes.plot(cf.l_cl,  powerSpectrum_g, lw=2, label='g')
+        axes.plot(cf.l_cl,  powerSpectrum_nu_mean, lw=2, label='nu')
+        axes.plot(cf.l_cl,  w_cross_mean, lw=2, label='nuXg')
+        #axes.plot(cf.l_cl,  hp.sphtfunc.anafast(overdensityMap_g), lw=2, label='g')
+        #axes.plot(cf.l_cl,  hp.sphtfunc.anafast(overdensityMap_nu), lw=2, label='nu')
+        #axes.plot(cf.l_cl,  np.abs(hp.sphtfunc.anafast(overdensityMap_nu, overdensityMap_g)), lw=2, label='nuXg')
         fig.legend()
         figs.save_all(testfigpath, 'pdf')
 
 
+
+
 if __name__ == '__main__':
-    test_EventGenerator()
-    test_SyntheticData()
-    test_PowerSpectrum()
-    test_CrossCorrelation()
+    #generateGalaxy()
+    #test_EventGenerator()
+    #test_SyntheticData()
+    #test_PowerSpectrum()
+    #test_CrossCorrelation()
+    
+    #test_w_CL()
+    #test_MeanCrossCorrelation_UniformAeff(20, f_gal=1., f_diff=1)
+    test_MeanCrossCorrelation(500, f_gal=1., f_diff=1) # f_diff=100000
+
     #test_w_cross_plot()
     #test_w_cross_sigma()

@@ -288,6 +288,7 @@ class FigureDict:
         ymin = kwcopy.pop('ymin', 1e-8)
         ymax = kwcopy.pop('ymax', 10.)
         yerr = kwcopy.pop('yerr', None)
+        lw = kwcopy.pop('lw', None)
 
         o_dict = self.setup_figure(key, **kwcopy)
 
@@ -308,11 +309,11 @@ class FigureDict:
                 c_dict['label'] = labels[i]
             if colors is not None:
                 c_dict['color'] = colors[i]
-            axes.plot(xvals, _cl_data.clip(ymin, ymax), **c_dict)
+            axes.plot(xvals, _cl_data.clip(ymin, ymax), lw=lw, **c_dict)
             if do_errs:
                 axes.errorbar(xvals, yerr[0][i], yerr=yerr[1][i], color='grey')
 
-        o_dict['leg'] = fig.legend(ncol=2)
+        #o_dict['leg'] = fig.legend(ncol=2)
         fig.subplots_adjust(left=0.18, top=0.9, right=0.9)
         return o_dict
 
