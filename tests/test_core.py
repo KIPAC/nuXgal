@@ -420,7 +420,7 @@ if __name__ == '__main__':
     
     #test_w_CL()
     #test_MeanCrossCorrelation_UniformAeff(20, f_gal=1., f_diff=1)
-    test_MeanCrossCorrelation(500, f_gal=1., f_diff=1) # f_diff=100000
+    test_MeanCrossCorrelation(1000, f_gal=1., f_diff=1.) # f_diff=100000
 
     #test_w_cross_plot()
     #test_w_cross_sigma()

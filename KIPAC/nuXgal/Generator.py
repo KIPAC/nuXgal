@@ -278,6 +278,14 @@ class AstroGenerator_v2(Cache):
 
         #syn_overdensities = hp_utils.vector_generate_overdensity_from_cl(self.f_gal*self.cl(), self._nside, n_trials, **kwargs)
         event_map_list = []
+        for i in range(n_trials):
+        #normalized_counts_map = np.exp(syn_overdensities[i])
+        #normalized_counts_map /= normalized_counts_map.sum()
+            for j in range(self._nmap):
+                expected_counts_map = self.prob_reject()[j] * normalized_counts_map * self.nevents_expected()[j]
+                observed_counts_map = np.random.poisson(expected_counts_map)
+                event_map_list.append(observed_counts_map)
+        """
         if not UniformAeff:
             for i in range(n_trials):
                 #normalized_counts_map = np.exp(syn_overdensities[i])
@@ -292,5 +300,5 @@ class AstroGenerator_v2(Cache):
                     expected_counts_map = normalized_counts_map * self.nevents_expected()[j]
                     observed_counts_map = np.random.poisson(expected_counts_map)
                     event_map_list.append(observed_counts_map)
-
+        """
         return np.vstack(event_map_list).reshape((n_trials, self._nmap, self._npix))
