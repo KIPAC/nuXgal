@@ -228,7 +228,7 @@ class AstroGenerator_v2(Cache):
 
     The events are generated follow a pdf, and then down-selected based on the effective area
     """
-    def __init__(self, nmap, **kwargs):
+    def __init__(self, nmap, f_gal, **kwargs):
         """C'tor
 
         Parameters
@@ -241,6 +241,7 @@ class AstroGenerator_v2(Cache):
         self._nside = kwcopy.pop('nside', Defaults.NSIDE)
         self._npix = hp.pixelfunc.nside2npix(self._nside)
         self._ncl = kwcopy.pop('ncl', Defaults.NCL)
+        self.f_gal = f_gal
 
         self.cl = CachedArray(self, "_cl", [self._ncl])
         self.nevents_expected = CachedArray(self, "_nevents", [self._nmap])
@@ -275,7 +276,7 @@ class AstroGenerator_v2(Cache):
         #nevents_expand = np.expand_dims(self.nevents_expected()/self.mean_reject(), -1)        
         #nevents_expand = np.expand_dims(self.nevents_expected(), -1)
 
-        syn_overdensities = hp_utils.vector_generate_overdensity_from_cl(self.cl(), self._nside, n_trials)
+        syn_overdensities = hp_utils.vector_generate_overdensity_from_cl(self.f_gal*self.cl(), self._nside, n_trials)
         
         event_map_list = []
         for i in n_trials:
