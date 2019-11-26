@@ -227,6 +227,9 @@ def test_CrossCorrelation():
         figs.save_all(testfigpath, 'pdf')
 
 def getEventNumberEbin(f_diff):
+    """
+    Compute event number using nu_mu diffuse flux. Return in the form of (NEbin)
+    """
     eg = EventGenerator()
 
     # calculate expected event number using IceCube diffuse neutrino flux
@@ -238,7 +241,12 @@ def getEventNumberEbin(f_diff):
                                            Defaults.map_E_edge[i+1])[0] * (eg.Aeff_max[i] * 1E4) * (333 * 24. * 3600) * 4 * np.pi * f_diff
     return N_2012_Aeffmax
 
+
+
 def test_MeanCrossCorrelation(N_realization = 50, f_gal = 0.6, f_diff=1):
+    """
+    Cross correlation of astro events generated using IceCube effective area
+    """
     cf = Analyze()
     eg = EventGenerator()
     N_2012_Aeffmax = getEventNumberEbin(f_diff)
@@ -248,11 +256,17 @@ def test_MeanCrossCorrelation(N_realization = 50, f_gal = 0.6, f_diff=1):
     density_nu = np.exp(density_nu)
     density_nu /= density_nu.sum() # a unique neutrino source distribution that shares the randomness of density_g
     
+    
+    # southern sky mask
+    exposuremap_theta, _ = hp.pixelfunc.pix2ang(Defaults.NSIDE, np.arange(hp.pixelfunc.nside2npix(Defaults.NSIDE)))
+    mask_muon = np.where(exposuremap_theta > 85. / 180 * np.pi)
+
     w_cross_array = np.zeros((N_realization, Defaults.NEbin, Defaults.NCL))
     for i in range(N_realization):
         if i % 100 == 0:
             print(i)
         countsmap = eg.astroEvent_galaxy(f_gal, N_2012_Aeffmax, density_nu)
+        countsmap = hp_utils.vector_apply_mask(countsmap, mask_muon, copy=False)
 
         for j in range(Defaults.NEbin):
             overdensityMap = Utilityfunc.overdensityMap(countsmap[j])
@@ -287,20 +301,33 @@ def test_MeanCrossCorrelation(N_realization = 50, f_gal = 0.6, f_diff=1):
 
 
 def test_MeanCrossCorrelation_UniformAeff(N_realization = 50, f_gal = 0.6, f_diff=1):
+    """
+    Cross correlation of astro events generated assuming uniform exposure
+    """
+
     cf = Analyze()
     eg = EventGenerator()
     w_cross_array = np.zeros((N_realization, Defaults.NEbin, Defaults.NCL))
     N_2012_Aeffmax = getEventNumberEbin(f_diff)
-    kwargs = {'uniform_prob_reject' : 'True'}
-    
+ 
     np.random.seed(randomSeed_g)
     density_nu = hp.sphtfunc.synfast(cf.cl_galaxy * 0.6, Defaults.NSIDE)
     density_nu = np.exp(density_nu)
     density_nu /= density_nu.sum() # a unique neutrino source distribution that shares the randomness of density_g
     
+    eg.astro_gen.nevents_expected.set_value(N_2012_Aeffmax, clear_parent=False)
+    eg.astro_gen.normalized_counts_map = density_nu
     
+    # southern sky mask
+    exposuremap_theta, _ = hp.pixelfunc.pix2ang(Defaults.NSIDE, np.arange(hp.pixelfunc.nside2npix(Defaults.NSIDE)))
+    mask_muon = np.where(exposuremap_theta > 85. / 180 * np.pi)
+
+
+
     for i in range(N_realization):
-        countsmap = eg.astroEvent_galaxy(f_gal, N_2012_Aeffmax, density_nu, **kwargs)
+        #countsmap = eg.astroEvent_galaxy(f_gal, N_2012_Aeffmax, density_nu, **kwargs)
+        countsmap = eg.astro_gen.generate_event_maps_NoReject(1)[0]
+        #countsmap = hp_utils.vector_apply_mask(countsmap, mask_muon, copy=True)
 
         for j in range(Defaults.NEbin):
             overdensityMap = Utilityfunc.overdensityMap(countsmap[j])
@@ -333,15 +360,15 @@ def test_MeanCrossCorrelation_UniformAeff(N_realization = 50, f_gal = 0.6, f_dif
 
 
 
-def test_w_CL():
+def test_Demonstration():
     """
-    Test of concept
+    Demonstration of concept
     """
     randomSeed = 45
     cf = Analyze()
     cl_galaxy = file_utils.read_cls_from_txt(ggclpath)[0]
 
-    # map_1
+    # source_1
     np.random.seed(randomSeed)
     density_g = hp.sphtfunc.synfast(cl_galaxy, Defaults.NSIDE)
     density_g = np.exp(density_g)
@@ -352,8 +379,10 @@ def test_w_CL():
     powerSpectrum_g = hp.sphtfunc.anafast(overdensityMap_g)
  
  
-    # map_2 x N_realization
-    N_realization = 2000
+    # source_2, with same randomness, N_realization
+    N_realization = 200
+    N_nu = 100000
+
     w_cross_array = np.zeros((N_realization, Defaults.NCL))
     powerSpectrum_nu_array = np.zeros((N_realization, Defaults.NCL))
     
@@ -367,25 +396,44 @@ def test_w_CL():
     for i in range(N_realization):
         if i % 100 == 0:
             print (i)
-        N_nu = 1000
         events_map_nu = np.random.poisson(density_nu * N_nu)
         overdensityMap_nu = Utilityfunc.overdensityMap(events_map_nu)
         powerSpectrum_nu_array[i] = hp.sphtfunc.anafast(overdensityMap_nu)
         w_cross_array[i] = hp.sphtfunc.anafast(overdensityMap_g, overdensityMap_nu)
 
     powerSpectrum_nu_mean = np.mean(powerSpectrum_nu_array, axis=0)
-    #w_cross_mean = np.mean(np.abs(w_cross_array), axis=0)
     w_cross_mean = np.mean(w_cross_array, axis=0)
+
+
+    # source_3, with a different pattern of randomness, N_realization
+    w_cross_array3 = np.zeros((N_realization, Defaults.NCL))
+    np.random.seed(randomSeed+10)
+    density_nu3 = hp.sphtfunc.synfast(cl_galaxy * 0.6, Defaults.NSIDE)
+    density_nu3 = np.exp(density_nu3)
+    density_nu3 /= density_nu3.sum()
+  
+    
+    for i in range(N_realization):
+        if i % 100 == 0:
+            print (i)
+        events_map_nu = np.random.poisson(density_nu3 * N_nu)
+        overdensityMap_nu = Utilityfunc.overdensityMap(events_map_nu)
+        w_cross_array3[i] = hp.sphtfunc.anafast(overdensityMap_g, overdensityMap_nu)
+
+    w_cross_mean3 = np.mean(w_cross_array3, axis=0)
+
+
 
     if MAKE_TEST_PLOTS:
         figs = FigureDict()
         o_dict = figs.setup_figure('test_w_CL', xlabel='$l$', ylabel='$C_l$', figsize=(8, 6))
         fig = o_dict['fig']
         axes = o_dict['axes']
+        axes.set_xscale('log')
         axes.plot(cf.l, cl_galaxy, 'k-')
         axes.plot(cf.l_cl,  powerSpectrum_g, lw=2, label='g')
-        axes.plot(cf.l_cl,  powerSpectrum_nu_mean, lw=2, label='nu')
-        axes.plot(cf.l_cl,  w_cross_mean, lw=2, label='nuXg')
+        axes.plot(cf.l_cl,  w_cross_mean, lw=2, label='nuXg, same random seed')
+        axes.plot(cf.l_cl,  w_cross_mean3, lw=2, label='nuXg, different random seed')
         fig.legend()
         figs.save_all(testfigpath, 'pdf')
 
@@ -401,10 +449,8 @@ def test_w_CL():
         axes.plot(cf.l, cl_galaxy * 0.6 ** 0.5, 'k-')
         axes.plot(cf.l_cl,  powerSpectrum_g, lw=2, label='g')
         axes.plot(cf.l_cl,  powerSpectrum_nu_mean, lw=2, label='nu')
-        axes.plot(cf.l_cl,  w_cross_mean, lw=2, label='nuXg')
-        #axes.plot(cf.l_cl,  hp.sphtfunc.anafast(overdensityMap_g), lw=2, label='g')
-        #axes.plot(cf.l_cl,  hp.sphtfunc.anafast(overdensityMap_nu), lw=2, label='nu')
-        #axes.plot(cf.l_cl,  np.abs(hp.sphtfunc.anafast(overdensityMap_nu, overdensityMap_g)), lw=2, label='nuXg')
+        axes.plot(cf.l_cl,  w_cross_mean, lw=2, label='nuXg, same random seed')
+        axes.plot(cf.l_cl,  w_cross_mean3, lw=2, label='nuXg, different random seed')
         fig.legend()
         figs.save_all(testfigpath, 'pdf')
 
@@ -412,15 +458,19 @@ def test_w_CL():
 
 
 if __name__ == '__main__':
+
+    ## -- tests of functions of the code
     #generateGalaxy()
     #test_EventGenerator()
     #test_SyntheticData()
     #test_PowerSpectrum()
     #test_CrossCorrelation()
-    
-    #test_w_CL()
-    #test_MeanCrossCorrelation_UniformAeff(20, f_gal=1., f_diff=1)
-    test_MeanCrossCorrelation(1000, f_gal=1., f_diff=1.) # f_diff=100000
-
     #test_w_cross_plot()
     #test_w_cross_sigma()
+
+    ## -- tests of efficiency of the method
+    test_Demonstration()
+    
+    #test_MeanCrossCorrelation_UniformAeff(50, f_diff=10000)
+    #test_MeanCrossCorrelation(50, f_diff=1) # f_diff=100000
+

@@ -28,7 +28,7 @@ class EventGenerator():
 
     This can generate both atmospheric and astrophysical events
     """
-    def __init__(self, f_gal=0.6):
+    def __init__(self):
         """C'tor
         """
         coszenith_path = os.path.join(Defaults.NUXGAL_IRF_DIR, 'N_coszenith{i}.txt')
@@ -40,16 +40,11 @@ class EventGenerator():
         aeff = file_utils.read_maps_from_fits(aeff_path, Defaults.NEbin)
         cosz = file_utils.read_cosz_from_txt(coszenith_path, Defaults.NEbin)
         cl_gal = file_utils.read_cls_from_txt(gg_cl_path)
-        print ((cl_gal).shape)
         nevts = np.loadtxt(nevents_path)
         nastro = 0.003 * nevts
 
-        gg_overdensity = hp.fitsfunc.read_map(gg_sample_path, verbose=Defaults.VERBOSE)
-        gg_pdf = 1. + gg_overdensity
-        gg_pdf /= gg_pdf.sum()
-
         self._atm_gen = AtmGenerator(Defaults.NEbin, coszenith=cosz, nevents_expected=nevts)
-        self._astro_gen = AstroGenerator_v2(Defaults.NEbin, f_gal, aeff=aeff, nevents_expected=nastro, cl=cl_gal)
+        self._astro_gen = AstroGenerator_v2(Defaults.NEbin, aeff=aeff) #, nevents_expected=nastro, cl=cl_gal)
         self.Aeff_max = aeff.max(1)
 
     @property
@@ -62,7 +57,7 @@ class EventGenerator():
         """Astrophysical event generator"""
         return self._astro_gen
 
-    def astroEvent_galaxy(self, f_gal, intrinsicCounts, normalized_counts_map, **kwargs):
+    def astroEvent_galaxy(self, f_gal, intrinsicCounts, normalized_counts_map):
         """Generate astrophysical event maps from a galaxy
         distribution and a number of intrinsice events
 
@@ -80,9 +75,9 @@ class EventGenerator():
         """
         #pdf = density / density.mean()
         #self._astro_gen.pdf.set_value(pdf, clear_parent=False)
-        self._astro_gen.f_gal = f_gal
+        self._astro_gen.normalized_counts_map = normalized_counts_map
         self._astro_gen.nevents_expected.set_value(intrinsicCounts, clear_parent=False)
-        return self._astro_gen.generate_event_maps(1, normalized_counts_map, **kwargs)[0]
+        return self._astro_gen.generate_event_maps(1)[0]
 
 
     def astroEvent_galaxy_powerlaw(self, density, Ntotal, alpha, emin=1e2, emax=1e9):
