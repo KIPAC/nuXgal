@@ -43,3 +43,6 @@ map_E_center_sq = map_E_center * map_E_center
 
 NCL = 3*NSIDE
 NAML = NCL * (NCL+1) / 2
+
+NCL_galaxyInput = 500
+

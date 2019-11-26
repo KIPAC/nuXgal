@@ -22,7 +22,8 @@ from KIPAC.nuXgal import FigureDict
 
 from KIPAC.nuXgal import Utilityfunc
 
-from .Utils import MAKE_TEST_PLOTS
+#from .Utils import
+MAKE_TEST_PLOTS = True
 
 astropath = os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'eventmap_astro{i}.fits')
 bgpath = os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'eventmap_atm{i}.fits')
@@ -40,11 +41,12 @@ for dirname in [Defaults.NUXGAL_SYNTHETICDATA_DIR, Defaults.NUXGAL_PLOT_DIR]:
 # --- EventGenerator tests ---
 def astroEvent_galaxy(seed_g=42):
     eg = EventGenerator()
+    
     # generate density from galaxy cl
-    cl_galaxy = file_utils.read_cls_from_txt(ggclpath)[0]
-    density_g = Utilityfunc.density_cl(cl_galaxy * 0.6, Defaults.NSIDE, seed_g)
-    density_g = np.exp(density_g) - 1.0
-
+    #cl_galaxy = file_utils.read_cls_from_txt(ggclpath)[0]
+    #density_g = Utilityfunc.density_cl(cl_galaxy * 0.6, Defaults.NSIDE, seed_g)
+    #density_g = np.exp(density_g) - 1.0
+    
     # calculate expected event number using IceCube diffuse neutrino flux
     dN_dE_astro = lambda E_GeV: 1.44E-18 * (E_GeV / 100e3)**(-2.28) # GeV^-1 cm^-2 s^-1 sr^-1, muon neutrino
     # total expected number of events before cut
@@ -54,7 +56,8 @@ def astroEvent_galaxy(seed_g=42):
                                            Defaults.map_E_edge[i+1])[0] * (eg.Aeff_max[i] * 1E4) * (333 * 24. * 3600) * 4 * np.pi
         #N_2012_Aeffmax[i] = dN_dE_astro(10.**map_logE_center[i]) * (Aeff_max[i] * 1E4) * (333 * 24. * 3600) * 4 * np.pi * (10.**map_logE_center[i] * np.log(10.) * dlogE) * 1
 
-    eventmap = eg.astroEvent_galaxy(density_g, N_2012_Aeffmax)
+    #eventmap = eg.astroEvent_galaxy(density_g, N_2012_Aeffmax)
+    eventmap = eg.astroEvent_galaxy(0.6, N_2012_Aeffmax)
     if seed_g == 42:
         basekey = 'eventmap_astro'
     else:
@@ -138,12 +141,14 @@ def test_SyntheticData():
     mask_north = np.where(exposuremap_theta < 85. / 180 * np.pi)
     bgmap_mu = hp_utils.vector_apply_mask(bgmap, mask_north, copy=True)
     intensity_atm_mu = cf.getIntensity(bgmap_mu)
+    
+    #print (intensity_astro * Defaults.map_E_center**2 , intensity_atm_nu * Defaults.map_E_center**2)
 
     if MAKE_TEST_PLOTS:
 
         figs = FigureDict()
 
-        intensities = [intensity_astro, intensity_atm_nu, intensity_atm_mu]
+        intensities = [intensity_astro, intensity_atm_nu]
 
         plot_dict = dict(colors=['b', 'orange', 'k'],
                          markers=['o', '^', 's'])
@@ -151,15 +156,15 @@ def test_SyntheticData():
         figs.plot_intesity_E2('SED', Defaults.map_E_center, intensities, **plot_dict)
 
 
-        #atm_nu_mu = np.loadtxt(os.path.join(Defaults.NUXGAL_ANCIL_DIR, 'atm_nu_mu.txt'))
-        #plt.plot(10.** atm_nu_mu[:, 0], atm_nu_mu[:, 1], lw=2, label=r'atm $\nu_\mu$', color=color_atm_nu)
+        atm_nu_mu = np.loadtxt(os.path.join(Defaults.NUXGAL_ANCIL_DIR, 'atm_nu_mu.txt'))
+        figs.plot('SED', 10.** atm_nu_mu[:, 0], atm_nu_mu[:, 1], lw=2, label=r'atm $\nu_\mu$', color='orange')
 
-        #ene = np.logspace(1, 7, 40)
+        ene = np.logspace(1, 7, 40)
 
         # Fig 24 of 1506.07981
         #plt.plot(ene, 50 / ((10.**4.6)**3.7) * (ene / 10.**4.6)**(-3.78) * ene **2, lw=2, label=r'atm $\mu$', color=color_atm_mu)
 
-        #plt.plot(ene, 1.44e-18 * (ene/100e3)**(-2.28) * ene**2 * 1, lw=2, label=r'IceCube $\nu_\mu$', color=color_astro)
+        figs.plot('SED', ene, 1.44e-18 * (ene/100e3)**(-2.28) * ene**2 * 1, lw=2, label=r'IceCube $\nu_\mu$', color='b')
         #plt.legend()
         figs.save_all(testfigpath, 'pdf')
 
@@ -179,16 +184,19 @@ def test_PowerSpectrum():
         figs.plot_cl('PowerSpectrum_atm', cf.l_cl, cl_nu,
                      xlabel="l", ylavel=r'$C_{l}$', figsize=(8, 6),
                      colors=color)
+        figs.plot('PowerSpectrum_atm', cf.l, cf.cl_galaxy, color='k', linestyle='--', lw=2)
         figs.save_all(testfigpath, 'pdf')
 
 
 def test_CrossCorrelation():
     cf = Analyze()
     eg = EventGenerator()
-    bgmap = eg.atmEvent(1.)
+    #bgmap = eg.atmEvent(1.)
+
+    bgmap = file_utils.read_maps_from_fits(bgpath, Defaults.NEbin)
 
     astromap = file_utils.read_maps_from_fits(astropath, Defaults.NEbin)
-    countsmap = bgmap + astromap
+    countsmap = bgmap #+ astromap
     w_cross = cf.crossCorrelationFromCountsmap(countsmap)
 
     if MAKE_TEST_PLOTS:
@@ -359,5 +367,5 @@ if __name__ == '__main__':
     test_SyntheticData()
     test_PowerSpectrum()
     test_CrossCorrelation()
-    test_w_cross_plot()
-    test_w_cross_sigma()
+    #test_w_cross_plot()
+    #test_w_cross_sigma()

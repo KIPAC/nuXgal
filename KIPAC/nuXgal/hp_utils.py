@@ -521,6 +521,6 @@ def vector_apply_mask(maps, mask, copy=True):
         maps_2d = reshape_array_to_2d(maps)
 
     for maps_1d in maps_2d:
-        maps_1d[mask] = mask
+        maps_1d[mask] = 0.
 
     return maps_2d.reshape(orig_shape)

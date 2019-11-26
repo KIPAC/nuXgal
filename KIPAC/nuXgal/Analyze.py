@@ -64,8 +64,13 @@ class Analyze():
 
     def crossCorrelationFromCountsmap(self, countsmap):
         intensitymap = hp_utils.vector_intensity_from_counts_and_exposure(countsmap, self.exposuremap)
+        overdensitymap = hp_utils.vector_overdensity_from_intensity(intensitymap)
         odmap_2d = hp_utils.reshape_array_to_2d(self.overdensityMap_g)
-        return hp_utils.vector_cross_correlate_maps(intensitymap, odmap_2d, Defaults.NCL)
+        return hp_utils.vector_cross_correlate_maps(overdensitymap, odmap_2d, Defaults.NCL)
+        #w_cross = np.zeros((Defaults.NEbin, Defaults.NCL))
+        #for i in range(Defaults.NEbin):
+        #    w_cross[i] = hp.sphtfunc.anafast(overdensitymap[i], self.overdensityMap_g)
+        #return w_cross
 
     def crossCorrelation_atm_std(self, N_re=100):
 

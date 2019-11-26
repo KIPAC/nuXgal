@@ -8,7 +8,7 @@ import healpy as hp
 from . import Defaults
 from . import file_utils
 
-from .Generator import AtmGenerator, AstroGenerator
+from .Generator import AtmGenerator, AstroGenerator_v2
 
 
 # dN/dE \propto E^alpha
@@ -40,6 +40,7 @@ class EventGenerator():
         aeff = file_utils.read_maps_from_fits(aeff_path, Defaults.NEbin)
         cosz = file_utils.read_cosz_from_txt(coszenith_path, Defaults.NEbin)
         cl_gal = file_utils.read_cls_from_txt(gg_cl_path)
+        print ((cl_gal).shape)
         nevts = np.loadtxt(nevents_path)
         nastro = 0.003 * nevts
 
@@ -48,7 +49,7 @@ class EventGenerator():
         gg_pdf /= gg_pdf.sum()
 
         self._atm_gen = AtmGenerator(Defaults.NEbin, coszenith=cosz, nevents_expected=nevts)
-        self._astro_gen = AstroGenerator_V2(Defaults.NEbin, f_gal, aeff=aeff, nevents_expected=nastro, cl=cl_gal)
+        self._astro_gen = AstroGenerator_v2(Defaults.NEbin, f_gal, aeff=aeff, nevents_expected=nastro, cl=cl_gal)
         self.Aeff_max = aeff.max(1)
 
     @property
@@ -61,7 +62,7 @@ class EventGenerator():
         """Astrophysical event generator"""
         return self._astro_gen
 
-    def astroEvent_galaxy(self, density, intrinsicCounts):
+    def astroEvent_galaxy(self, f_gal, intrinsicCounts):
         """Generate astrophysical event maps from a galaxy
         distribution and a number of intrinsice events
 
@@ -77,8 +78,9 @@ class EventGenerator():
         counts_map : `np.ndarray`
             Maps of simulated events
         """
-        pdf = density / density.mean()
-        self._astro_gen.pdf.set_value(pdf, clear_parent=False)
+        #pdf = density / density.mean()
+        #self._astro_gen.pdf.set_value(pdf, clear_parent=False)
+        self._astro_gen.f_gal = f_gal
         self._astro_gen.nevents_expected.set_value(intrinsicCounts, clear_parent=False)
 
         return self._astro_gen.generate_event_maps(1)[0]
