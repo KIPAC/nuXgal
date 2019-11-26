@@ -218,3 +218,72 @@ class AstroGenerator(Cache):
         full_pdf *= self.prob_reject()
         return hp_utils.vectorize_gen_syn_data(np.random.poisson,
                                                full_pdf.clip(0, np.inf), n_trials, **kwargs)
+
+
+
+
+
+class AstroGenerator_v2(Cache):
+    """Class to generate astrophysical events
+
+    The events are generated follow a pdf, and then down-selected based on the effective area
+    """
+    def __init__(self, nmap, **kwargs):
+        """C'tor
+
+        Parameters
+        ----------
+        nmap : `int`
+            Number of maps (i.e., energy bins) to consider
+        """
+        kwcopy = kwargs.copy()
+        self._nmap = nmap
+        self._nside = kwcopy.pop('nside', Defaults.NSIDE)
+        self._npix = hp.pixelfunc.nside2npix(self._nside)
+        self._ncl = kwcopy.pop('ncl', Defaults.NCL)
+
+        self.cl = CachedArray(self, "_cl", [self._ncl])
+        self.nevents_expected = CachedArray(self, "_nevents", [self._nmap])
+        self.aeff = CachedArray(self, "_aeff", [self._nmap, self._npix])
+        self.prob_reject = CachedArray(self, self._prob_reject, [self._nmap, self._npix])
+        self.mean_reject = CachedArray(self, self._mean_reject, [self._nmap])
+        Cache.__init__(self, **kwcopy)
+
+
+    def _prob_reject(self):
+        aeff_data = self.aeff()
+        max_aeff = aeff_data.max(1)
+        return (aeff_data.T / max_aeff).T
+
+    def _mean_reject(self):
+        return self.prob_reject().mean(1)
+
+    def generate_event_maps(self, n_trials, **kwargs):
+        """Generate a set of `healpy` maps
+
+        Parameters
+        ----------
+        nTrials : `int`
+            Number of trials to generay
+
+        Returns
+        -------
+        maps : `np.ndarray`
+            An array of (nTrials x self._nmap) synthetic maps
+        """
+        #pdf_expand = np.expand_dims(self.pdf(), 0)
+        #nevents_expand = np.expand_dims(self.nevents_expected()/self.mean_reject(), -1)        
+        #nevents_expand = np.expand_dims(self.nevents_expected(), -1)
+
+        syn_overdensities = hp_utils.vector_generate_overdensity_from_cl(self.cl(), self._nside, n_trials)
+        
+        event_map_list = []
+        for i in n_trials:
+            normalized_counts_map = np.exp(syn_overdensities[i])
+            normalized_counts_map /= normalized_counts_map.sum()
+            for j in range(self._nmap):
+                expected_counts_map = self.prob_reject()[j] * normalized_counts_map * self.nevents_expected()[j]
+                observed_counts_map = np.poisson(expected_counts_map)
+                event_map_list.append(observed_counts_map)
+
+        return np.vstack(event_map_list).reshape((n_trials, self._nside, self._npix))
