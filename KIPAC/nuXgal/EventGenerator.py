@@ -57,7 +57,7 @@ class EventGenerator():
         """Astrophysical event generator"""
         return self._astro_gen
 
-    def astroEvent_galaxy(self, f_gal, intrinsicCounts, normalized_counts_map):
+    def astroEvent_galaxy(self, intrinsicCounts, normalized_counts_map):
         """Generate astrophysical event maps from a galaxy
         distribution and a number of intrinsice events
 

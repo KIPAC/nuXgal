@@ -32,7 +32,7 @@ testfigpath = os.path.join(Defaults.NUXGAL_PLOT_DIR, 'test')
 
 for dirname in [Defaults.NUXGAL_SYNTHETICDATA_DIR, Defaults.NUXGAL_PLOT_DIR]:
     try:
-        os.makedirs(dirname) 
+        os.makedirs(dirname)
     except OSError:
         pass
 
@@ -48,7 +48,7 @@ def generateGalaxy():
     np.random.seed(randomSeed)
     density_g = hp.sphtfunc.synfast(cl_galaxy, Defaults.NSIDE)
     #density_g = Utilityfunc.density_cl(cl_galaxy, Defaults.NSIDE, randomSeed)
-    
+
     density_g = np.exp(density_g) #- 1.0
     #print (np.where(density_g < 1))
     density_g /= density_g.sum()
@@ -64,7 +64,7 @@ def generateGalaxy():
 # --- EventGenerator tests ---
 def astroEvent_galaxy(seed_g=42):
     eg = EventGenerator()
-    
+
     # calculate expected event number using IceCube diffuse neutrino flux
     dN_dE_astro = lambda E_GeV: 1.44E-18 * (E_GeV / 100e3)**(-2.28) # GeV^-1 cm^-2 s^-1 sr^-1, muon neutrino
     # total expected number of events before cut
@@ -92,6 +92,7 @@ def astroEvent_galaxy(seed_g=42):
 
 
 def atmBG_coszenith(energyBin=0):
+
     eg = EventGenerator()
     N_coszenith = eg.atm_gen.coszenith()[energyBin]
     recovered_values = eg.atmBG_coszenith(int(np.sum(N_coszenith[:, 1])), energyBin)
@@ -158,7 +159,7 @@ def test_SyntheticData():
     mask_north = np.where(exposuremap_theta < 85. / 180 * np.pi)
     bgmap_mu = hp_utils.vector_apply_mask(bgmap, mask_north, copy=True)
     intensity_atm_mu = cf.getIntensity(bgmap_mu)
-    
+
     #print (intensity_astro * Defaults.map_E_center**2 , intensity_atm_nu * Defaults.map_E_center**2)
 
     if MAKE_TEST_PLOTS:
@@ -243,20 +244,21 @@ def getEventNumberEbin(f_diff):
 
 
 
-def test_MeanCrossCorrelation(N_realization = 50, f_gal = 0.6, f_diff=1):
+def test_MeanCrossCorrelationAstro(N_realization = 50, f_gal = 0.6, f_diff=1, writefile=False):
     """
     Cross correlation of astro events generated using IceCube effective area
     """
     cf = Analyze()
     eg = EventGenerator()
     N_2012_Aeffmax = getEventNumberEbin(f_diff)
-    
+
     np.random.seed(randomSeed_g)
-    density_nu = hp.sphtfunc.synfast(cf.cl_galaxy * 0.6, Defaults.NSIDE)
+    density_nu = hp.sphtfunc.synfast(cf.cl_galaxy * f_gal, Defaults.NSIDE)
     density_nu = np.exp(density_nu)
     density_nu /= density_nu.sum() # a unique neutrino source distribution that shares the randomness of density_g
-    
-    
+
+
+
     # southern sky mask
     exposuremap_theta, _ = hp.pixelfunc.pix2ang(Defaults.NSIDE, np.arange(hp.pixelfunc.nside2npix(Defaults.NSIDE)))
     mask_muon = np.where(exposuremap_theta > 85. / 180 * np.pi)
@@ -265,7 +267,7 @@ def test_MeanCrossCorrelation(N_realization = 50, f_gal = 0.6, f_diff=1):
     for i in range(N_realization):
         if i % 100 == 0:
             print(i)
-        countsmap = eg.astroEvent_galaxy(f_gal, N_2012_Aeffmax, density_nu)
+        countsmap = eg.astroEvent_galaxy(N_2012_Aeffmax, density_nu)
         countsmap = hp_utils.vector_apply_mask(countsmap, mask_muon, copy=False)
 
         for j in range(Defaults.NEbin):
@@ -277,13 +279,13 @@ def test_MeanCrossCorrelation(N_realization = 50, f_gal = 0.6, f_diff=1):
     w_cross_std = np.std(w_cross_array, axis=0)
 
     cl_galaxy_sample = hp.sphtfunc.anafast(cf.overdensityMap_g)
-    
- 
+
+
     if MAKE_TEST_PLOTS:
         figs = FigureDict()
         color = ['r', 'orange', 'limegreen', 'skyblue', 'mediumslateblue', 'purple', 'grey']
 
-        o_dict = figs.setup_figure('WcrossMean', xlabel="l", ylabel=r'$w$', figsize=(6, 8))
+        o_dict = figs.setup_figure('WcrossMeanAstro', xlabel="l", ylabel=r'$w$', figsize=(6, 8))
         axes = o_dict['axes']
         for i in range(Defaults.NEbin):
             axes.plot(cf.l, cf.cl_galaxy * 10 ** (i*2), color='grey', lw=1)
@@ -291,16 +293,17 @@ def test_MeanCrossCorrelation(N_realization = 50, f_gal = 0.6, f_diff=1):
 
             w_cross_mean[i] *= 10 ** (i*2)
             w_cross_std[i] *= 10** (i * 2)
-        figs.plot_cl('WcrossMean', cf.l_cl, np.abs(w_cross_mean),
+        figs.plot_cl('WcrossMeanAstro', cf.l_cl, np.abs(w_cross_mean),
                      xlabel="l", ylabel=r'$C_{l}$',
                      colors=color, ymin=1e-7, ymax=1e10, lw=3)
-        figs.plot_cl('WcrossMean', cf.l_cl, np.abs(w_cross_std), linestyle='-.', colors=color,  ymin=1e-7, ymax=1e10, lw=1)
-        
+        figs.plot_cl('WcrossMeanAstro', cf.l_cl, np.abs(w_cross_std), linestyle='-.', colors=color,  ymin=1e-7, ymax=1e10, lw=1)
         figs.save_all(testfigpath, 'pdf')
 
+    if writefile:
+        np.save(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'w_cross_std_astro_'+str(f_gal)+'_'+str(f_diff)), w_cross_std)
 
 
-def test_MeanCrossCorrelation_UniformAeff(N_realization = 50, f_gal = 0.6, f_diff=1):
+def test_MeanCrossCorrelationAstro_UniformAeff(N_realization = 50, f_gal = 0.6, f_diff=1):
     """
     Cross correlation of astro events generated assuming uniform exposure
     """
@@ -309,15 +312,15 @@ def test_MeanCrossCorrelation_UniformAeff(N_realization = 50, f_gal = 0.6, f_dif
     eg = EventGenerator()
     w_cross_array = np.zeros((N_realization, Defaults.NEbin, Defaults.NCL))
     N_2012_Aeffmax = getEventNumberEbin(f_diff)
- 
+
     np.random.seed(randomSeed_g)
-    density_nu = hp.sphtfunc.synfast(cf.cl_galaxy * 0.6, Defaults.NSIDE)
+    density_nu = hp.sphtfunc.synfast(cf.cl_galaxy * f_gal, Defaults.NSIDE)
     density_nu = np.exp(density_nu)
     density_nu /= density_nu.sum() # a unique neutrino source distribution that shares the randomness of density_g
-    
+
     eg.astro_gen.nevents_expected.set_value(N_2012_Aeffmax, clear_parent=False)
     eg.astro_gen.normalized_counts_map = density_nu
-    
+
     # southern sky mask
     exposuremap_theta, _ = hp.pixelfunc.pix2ang(Defaults.NSIDE, np.arange(hp.pixelfunc.nside2npix(Defaults.NSIDE)))
     mask_muon = np.where(exposuremap_theta > 85. / 180 * np.pi)
@@ -337,13 +340,13 @@ def test_MeanCrossCorrelation_UniformAeff(N_realization = 50, f_gal = 0.6, f_dif
 
     w_cross_mean = np.mean(w_cross_array, axis=0)
     w_cross_std = np.std(w_cross_array, axis=0)
-    
+
     cl_galaxy_sample = hp.sphtfunc.anafast(cf.overdensityMap_g)
     if MAKE_TEST_PLOTS:
         figs = FigureDict()
         color = ['r', 'orange', 'limegreen', 'skyblue', 'mediumslateblue', 'purple', 'grey']
 
-        o_dict = figs.setup_figure('WcrossMean_uniformAeff', xlabel="l", ylabel=r'$w$', figsize=(6, 8))
+        o_dict = figs.setup_figure('WcrossMeanAstro_uniformAeff', xlabel="l", ylabel=r'$w$', figsize=(6, 8))
         axes = o_dict['axes']
         for i in range(Defaults.NEbin):
             axes.plot(cf.l, cf.cl_galaxy * 10 ** (i*2), color='grey', lw=1)
@@ -351,11 +354,11 @@ def test_MeanCrossCorrelation_UniformAeff(N_realization = 50, f_gal = 0.6, f_dif
 
             w_cross_mean[i] *= 10 ** (i*2)
             w_cross_std[i] *= 10** (i * 2)
-        figs.plot_cl('WcrossMean_uniformAeff', cf.l_cl, np.abs(w_cross_mean),
+        figs.plot_cl('WcrossMeanAstro_uniformAeff', cf.l_cl, np.abs(w_cross_mean),
                      xlabel="l", ylabel=r'$C_{l}$',
                      colors=color, ymin=1e-7, ymax=1e10, lw=3)
-        figs.plot_cl('WcrossMean_uniformAeff', cf.l_cl, np.abs(w_cross_std), linestyle='-.', colors=color,  ymin=1e-7, ymax=1e10, lw=1)
-        
+        figs.plot_cl('WcrossMeanAstro_uniformAeff', cf.l_cl, np.abs(w_cross_std), linestyle='-.', colors=color,  ymin=1e-7, ymax=1e10, lw=1)
+
         figs.save_all(testfigpath, 'pdf')
 
 
@@ -377,22 +380,22 @@ def test_Demonstration():
     events_map_g = np.random.poisson(density_g * N_g)
     overdensityMap_g = Utilityfunc.overdensityMap(events_map_g)
     powerSpectrum_g = hp.sphtfunc.anafast(overdensityMap_g)
- 
- 
+
+
     # source_2, with same randomness, N_realization
     N_realization = 200
     N_nu = 100000
 
     w_cross_array = np.zeros((N_realization, Defaults.NCL))
     powerSpectrum_nu_array = np.zeros((N_realization, Defaults.NCL))
-    
+
     np.random.seed(randomSeed)
     density_nu = hp.sphtfunc.synfast(cl_galaxy * 0.6, Defaults.NSIDE)
     density_nu = np.exp(density_nu)
     density_nu /= density_nu.sum()
     #print (np.where((density_nu - density_g) != 0))
     #density_nu = density_g
-    
+
     for i in range(N_realization):
         if i % 100 == 0:
             print (i)
@@ -411,8 +414,8 @@ def test_Demonstration():
     density_nu3 = hp.sphtfunc.synfast(cl_galaxy * 0.6, Defaults.NSIDE)
     density_nu3 = np.exp(density_nu3)
     density_nu3 /= density_nu3.sum()
-  
-    
+
+
     for i in range(N_realization):
         if i % 100 == 0:
             print (i)
@@ -457,6 +460,221 @@ def test_Demonstration():
 
 
 
+def test_MeanCrossCorrelation(N_realization = 50, f_gal = 0.6, f_diff=1, NatmYear=1., writefile=False):
+   """
+   Cross correlation of atm events with given galaxy sample
+   """
+
+   cf = Analyze()
+   eg = EventGenerator()
+   N_2012_Aeffmax = getEventNumberEbin(f_diff)
+
+   # normalized neutrino source distribution
+   np.random.seed(randomSeed_g)
+   density_nu = hp.sphtfunc.synfast(cf.cl_galaxy * f_gal, Defaults.NSIDE)
+   density_nu = np.exp(density_nu)
+   density_nu /= density_nu.sum() # a unique neutrino source distribution that shares the randomness of density_g
+   # southern sky mask
+   exposuremap_theta, _phi = hp.pixelfunc.pix2ang(Defaults.NSIDE, np.arange(Defaults.NPIXEL))
+   mask_muon = np.where(exposuremap_theta > 85. / 180 * np.pi)
+
+   w_cross_array = np.zeros((N_realization, Defaults.NEbin, Defaults.NCL))
+   w_cross_astro_array = np.zeros((N_realization, Defaults.NEbin, Defaults.NCL))
+   w_cross_atm_array = np.zeros((N_realization, Defaults.NEbin, Defaults.NCL))
+
+   fraction_count_astro_array = np.zeros((N_realization, Defaults.NEbin))
+
+
+   for i in range(N_realization):
+       if i % 1 == 0:
+            print (i)
+
+       astromap = eg.astroEvent_galaxy(N_2012_Aeffmax, density_nu)
+       atmmap = eg.atmEvent(NatmYear)
+       astromap = hp_utils.vector_apply_mask(astromap, mask_muon, copy=False)
+       atmmap = hp_utils.vector_apply_mask(atmmap, mask_muon, copy=False)
+       countsmap = astromap + atmmap
+       fraction_count_astro_array[i] = np.sum(astromap, axis=1) / np.sum(countsmap, axis=1)
+       #print (fraction_count_astro_array[i])
+
+       for j in range(Defaults.NEbin):
+           overdensityMap = Utilityfunc.overdensityMap(countsmap[j])
+           w_cross_array[i][j] = hp.anafast(cf.overdensityMap_g, overdensityMap)
+           overdensityMap_astro = Utilityfunc.overdensityMap(astromap[j])
+           w_cross_astro_array[i][j] = hp.anafast(cf.overdensityMap_g, overdensityMap_astro)
+           overdensityMap_atm = Utilityfunc.overdensityMap(atmmap[j])
+           w_cross_atm_array[i][j] = hp.anafast(cf.overdensityMap_g, overdensityMap_atm)
+
+
+   w_cross_mean = np.mean(w_cross_array, axis=0)
+   w_cross_std = np.std(w_cross_array, axis=0)
+
+   w_cross_mean_astro = np.mean(w_cross_astro_array, axis=0)
+   w_cross_std_astro = np.std(w_cross_astro_array, axis=0)
+
+   w_cross_mean_atm = np.mean(w_cross_atm_array, axis=0)
+   w_cross_std_atm = np.std(w_cross_atm_array, axis=0)
+
+   fraction_count_astro = np.mean(fraction_count_astro_array, axis=0)
+   cl_galaxy_sample = hp.sphtfunc.anafast(cf.overdensityMap_g)
+
+
+
+   if MAKE_TEST_PLOTS:
+       figs = FigureDict()
+       color = ['r', 'orange', 'limegreen', 'skyblue', 'mediumslateblue', 'purple', 'grey']
+
+       o_dict = figs.setup_figure('WcrossMean', xlabel="l", ylabel=r'$w$', figsize=(6, 8))
+       axes = o_dict['axes']
+       for i in range(Defaults.NEbin):
+           axes.plot(cf.l, cf.cl_galaxy * 10 ** (i*2), color='grey', lw=1)
+           axes.plot(cf.l_cl, cl_galaxy_sample * 10 ** (i*2), color='k', lw=2)
+
+           w_cross_mean[i] *= 10 ** (i*2)
+           w_cross_std[i] *= 10** (i * 2)
+       figs.plot_cl('WcrossMean', cf.l_cl, np.abs(w_cross_mean),
+                    xlabel="l", ylabel=r'$C_{l}$',
+                    colors=color, ymin=1e-7, ymax=1e10, lw=3)
+       figs.plot_cl('WcrossMean', cf.l_cl, np.abs(w_cross_std), linestyle='-.', colors=color,  ymin=1e-7, ymax=1e10, lw=1)
+
+       figs.save_all(testfigpath, 'pdf')
+
+
+       figs = FigureDict()
+       o_dict = figs.setup_figure('WcrossMeanAstro', xlabel="l", ylabel=r'$w$', figsize=(6, 8))
+       axes = o_dict['axes']
+       for i in range(Defaults.NEbin):
+           axes.plot(cf.l, cf.cl_galaxy * 10 ** (i*2), color='grey', lw=1)
+           axes.plot(cf.l_cl, cl_galaxy_sample * 10 ** (i*2), color='k', lw=2)
+
+           w_cross_mean_astro[i] *= 10 ** (i*2) #/ fraction_count_astro[i]
+           w_cross_std_astro[i] *= 10** (i * 2)
+       figs.plot_cl('WcrossMeanAstro', cf.l_cl, np.abs(w_cross_mean_astro),
+                    xlabel="l", ylabel=r'$C_{l}$',
+                    colors=color, ymin=1e-7, ymax=1e10, lw=3)
+       figs.plot_cl('WcrossMeanAstro', cf.l_cl, np.abs(w_cross_std_astro), linestyle='-.', colors=color,  ymin=1e-7, ymax=1e10, lw=1)
+       figs.save_all(testfigpath, 'pdf')
+
+
+
+       figs = FigureDict()
+       o_dict = figs.setup_figure('WcrossMeanAtm', xlabel="l", ylabel=r'$w$', figsize=(6, 8))
+       axes = o_dict['axes']
+       for i in range(Defaults.NEbin):
+           axes.plot(cf.l, cf.cl_galaxy * 10 ** (i*2), color='grey', lw=1)
+           axes.plot(cf.l_cl, cl_galaxy_sample * 10 ** (i*2), color='k', lw=2)
+
+           w_cross_mean_atm[i] *= 10 ** (i*2)
+           w_cross_std_atm[i] *= 10** (i * 2)
+       figs.plot_cl('WcrossMeanAtm', cf.l_cl, np.abs(w_cross_mean_atm),
+                    xlabel="l", ylabel=r'$C_{l}$',
+                    colors=color, ymin=1e-7, ymax=1e10, lw=3)
+       figs.plot_cl('WcrossMeanAtm', cf.l_cl, np.abs(w_cross_std_atm), linestyle='-.', colors=color,  ymin=1e-7, ymax=1e10, lw=1)
+       figs.save_all(testfigpath, 'pdf')
+
+
+       # difference
+       print (fraction_count_astro)
+       figs = FigureDict()
+       o_dict = figs.setup_figure('WcrossMeanEst', xlabel="l", ylabel=r'$w$', figsize=(6, 8))
+       axes = o_dict['axes']
+       w_cross_mean_est = w_cross_mean * 0.
+       for i in range(Defaults.NEbin):
+           #axes.plot(cf.l, cf.cl_galaxy * 10 ** (i*2), color='grey', lw=1)
+           #axes.plot(cf.l_cl, cl_galaxy_sample * 10 ** (i*2), color='k', lw=2)
+           if np.isclose(fraction_count_astro[i], 1):
+               #w_cross_mean_est[i] = w_cross_mean_astro[i] * fraction_count_astro[i]
+               w_cross_mean_est[i] = cf.cl_galaxy[0:Defaults.NCL] * 10 ** (i*2) * f_gal ** 0.5 * fraction_count_astro[i]
+           else:
+               #w_cross_mean_est[i] = w_cross_mean_astro[i] * fraction_count_astro[i] + w_cross_mean_atm[i] * (1 - fraction_count_astro[i])
+               w_cross_mean_est[i] = cf.cl_galaxy[0:Defaults.NCL] * 10 ** (i*2) * f_gal ** 0.5 * fraction_count_astro[i] + w_cross_mean_atm[i] * (1 - fraction_count_astro[i])
+
+       #figs.plot_cl('WcrossMeanEst', cf.l_cl, np.abs(w_cross_mean - w_cross_mean_est), xlabel="l", ylabel=r'$C_{l}$', colors=color, ymin=1e-7, ymax=1e10, lw=1)
+       figs.plot_cl('WcrossMeanEst', cf.l_cl, np.abs(w_cross_mean), colors=color,  ymin=1e-7, ymax=1e10, lw=1)
+       figs.plot_cl('WcrossMeanEst', cf.l_cl, np.abs(w_cross_mean_est), colors=color,  ymin=1e-7, ymax=1e10, lw=2)
+       #figs.plot_cl('WcrossMeanEst', cf.l_cl, np.abs(w_cross_std), linestyle='-.', colors=color,  ymin=1e-7, ymax=1e10, lw=1)
+
+       figs.save_all(testfigpath, 'pdf')
+
+   if writefile:
+        #np.save(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'w_cross_std_'+str(NatmYear)), w_cross_std)
+        np.save(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'w_cross_std_'+str(f_gal) + '_' + str(f_diff) +'_' +str(NatmYear)), w_cross_std)
+
+
+def test_STDCrossCorrelation(test_astro, test_atm, test_mix):
+    cf = Analyze()
+
+
+    if test_astro:
+        w_std_tests = []
+        #test_MeanCrossCorrelationAstro(20, f_gal=1, f_diff=10000, writefile=True)
+        #test_MeanCrossCorrelationAstro(200, f_gal=1, f_diff=1, writefile=True)
+        f_gals = [0.6, 0.6, 1, 1]
+        f_diffs = [1, 10000, 1, 10000]
+        for i in range(len(f_gals)):
+            f_gal = f_gals[i]
+            f_diff = f_diffs[i]
+            w_std_tests.append(np.load(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'w_cross_std_astro_'+str(f_gal)+'_'+str(f_diff) + '.npy' )))
+
+
+        figs = FigureDict()
+        color = ['r', 'orange', 'limegreen', 'skyblue', 'mediumslateblue', 'purple', 'grey']
+        o_dict = figs.setup_figure('W_std_astro', xlabel="l", ylabel=r'$w_{\mathrm{std}}$', figsize=(6, 8))
+        axes = o_dict['axes']
+        #figs.plot_cl('W_std_astro', cf.l_cl, np.abs(w_std_tests[0]), colors=color, ymin=1e-7, ymax=1e10, lw=2, linestyle='--')
+        figs.plot_cl('W_std_astro', cf.l_cl, np.abs(w_std_tests[1] * 100), colors=color, ymin=1e-7, ymax=1e10, lw=1)
+        #figs.plot_cl('W_std_astro', cf.l_cl, np.abs(w_std_tests[2] * 0.6 ** 0.5 ), colors=color, ymin=1e-7, ymax=1e10, lw=3)
+        figs.plot_cl('W_std_astro', cf.l_cl, np.abs(w_std_tests[3] * 0.6 ** 0.5 * 100 ), colors=color, ymin=1e-7, ymax=1e10, lw=2)
+        figs.save_all(testfigpath, 'pdf')
+
+    if test_atm:
+        #test_MeanCrossCorrelation(N_realization = 15, f_gal = 0.6, f_diff=0., NatmYear=1.5, writefile=True)
+
+        w_std_tests = []
+        NatmYear = [1, 2, 1.5]
+        for _NatmYear in NatmYear:
+            w_std_tests.append(np.load(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'w_cross_std_'+str(_NatmYear)+ '.npy' )))
+
+        figs = FigureDict()
+        color = ['r', 'orange', 'limegreen', 'skyblue', 'mediumslateblue', 'purple', 'grey']
+        o_dict = figs.setup_figure('W_std_atm', xlabel="l", ylabel=r'$w_{\mathrm{std}}$', figsize=(6, 8))
+        axes = o_dict['axes']
+        figs.plot_cl('W_std_atm', cf.l_cl, np.abs(w_std_tests[0]), colors=color, ymin=1e-7, ymax=1e10, lw=2)
+        figs.plot_cl('W_std_atm', cf.l_cl, np.abs(w_std_tests[1] * 2** 2), colors=color, ymin=1e-7, ymax=1e10, lw=1)
+        figs.save_all(testfigpath, 'pdf')
+
+    if test_mix:
+        f_gal = 0.6
+        f_diff = 1
+        NatmYear = 1
+        #test_MeanCrossCorrelationAstro(10, f_gal=f_gal, f_diff=f_diff, writefile=True)
+        #test_MeanCrossCorrelation(N_realization = 10, f_gal = f_gal, f_diff=0., NatmYear=NatmYear, writefile=True)
+        #test_MeanCrossCorrelation(N_realization = 10, f_gal = f_gal, f_diff=f_diff, NatmYear=NatmYear, writefile=True)
+
+        #fraction_count_astro = np.array([0.09684247, 0.33695569, 0.93967293, 0.99633153, 1., 1.,np.nan]) # 0.6_100_1
+        fraction_count_astro = np.array([0.00102036, 0.00499351, 0.13897779, 0.73714601, 1., np.nan, np.nan]) # 0.6_1_1
+        #fraction_count_astro = np.array([2.30053177e-04, 9.88693529e-04, 2.74443799e-02, 2.27344707e-01, 1.00000000e+00, np.nan, np.nan]) # 0.6_2_2
+
+        w_std_mix = np.load(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'w_cross_std_'+str(f_gal) + '_' + str(f_diff) +'_' +str(NatmYear) + '.npy'))
+        w_std_astro = np.load(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'w_cross_std_astro_'+str(f_gal)+'_'+str(f_diff) + '.npy' ))
+        w_std_atm = np.load(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'w_cross_std_'+str(f_gal) + '_' + str(0.0) +'_'+str(NatmYear)+ '.npy'))
+
+        w_std_est = w_std_mix * 0.
+        for i in range(Defaults.NEbin):
+            w_std_est[i] = ((w_std_astro[i] * fraction_count_astro[i]) ** 2 + (w_std_atm[i] * (1 - fraction_count_astro[i]))**2 ) ** 0.5
+
+
+        figs = FigureDict()
+        color = ['r', 'orange', 'limegreen', 'skyblue', 'mediumslateblue', 'purple', 'grey']
+        o_dict = figs.setup_figure('W_std', xlabel="l", ylabel=r'$w_{\mathrm{std}}$', figsize=(6, 8))
+        axes = o_dict['axes']
+        figs.plot_cl('W_std', cf.l_cl, np.abs(w_std_mix), colors=color, ymin=1e-7, ymax=1e10, lw=2)
+        figs.plot_cl('W_std', cf.l_cl, np.abs(w_std_est), colors=color, ymin=1e-7, ymax=1e10, lw=1)
+        figs.save_all(testfigpath, 'pdf')
+
+
+
+
 if __name__ == '__main__':
 
     ## -- tests of functions of the code
@@ -469,8 +687,8 @@ if __name__ == '__main__':
     #test_w_cross_sigma()
 
     ## -- tests of efficiency of the method
-    test_Demonstration()
-    
-    #test_MeanCrossCorrelation_UniformAeff(50, f_diff=10000)
-    #test_MeanCrossCorrelation(50, f_diff=1) # f_diff=100000
-
+    #test_Demonstration()
+    #test_MeanCrossCorrelationAstro_UniformAeff(50, f_gal=0.6, f_diff=10000)
+    #test_MeanCrossCorrelationAstro(50, f_gal=0.6, f_diff=10000, writefile=True)
+    test_STDCrossCorrelation(False, False, True)
+    #test_MeanCrossCorrelation(N_realization = 10, f_gal = 0.6, f_diff=1.)
