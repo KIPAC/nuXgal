@@ -64,18 +64,30 @@ class Analyze():
 
     def crossCorrelationFromCountsmap(self, countsmap):
         intensitymap = hp_utils.vector_intensity_from_counts_and_exposure(countsmap, self.exposuremap)
+        overdensitymap = hp_utils.vector_overdensity_from_intensity(intensitymap)
         odmap_2d = hp_utils.reshape_array_to_2d(self.overdensityMap_g)
-        return hp_utils.vector_cross_correlate_maps(intensitymap, odmap_2d, Defaults.NCL)
+        return hp_utils.vector_cross_correlate_maps(overdensitymap, odmap_2d, Defaults.NCL)
+        #w_cross = np.zeros((Defaults.NEbin, Defaults.NCL))
+        #for i in range(Defaults.NEbin):
+        #    w_cross[i] = hp.sphtfunc.anafast(overdensitymap[i], self.overdensityMap_g)
+        #return w_cross
 
-    def crossCorrelation_atm_std(self, N_re=100):
+    def crossCorrelation_atm_std(self, N_yr, N_re):
 
         if self.eg is None:
             self.eg = EventGenerator()
         w_cross = np.zeros((N_re, Defaults.NEbin, 3 * Defaults.NSIDE))
+        Ncount = np.zeros(Defaults.NEbin)
+
+        eventnumber_Ebin = np.random.poisson(self.eg._atm_gen.nevents_expected() * N_yr)
+        self.eg._atm_gen.nevents_expected.set_value(eventnumber_Ebin, clear_parent=False)
+        eventmaps = self.eg._atm_gen.generate_event_maps(N_re)
+
 
         for iteration in np.arange(N_re):
             print("iter ", iteration)
-            eventmap_atm = self.eg.atmEvent(1.)
+            eventmap_atm = eventmaps[iteration]
+            eventmap_atm = hp_utils.vector_apply_mask(eventmap_atm, Defaults.mask_muon, copy=False)
             w_cross[iteration] = self.crossCorrelationFromCountsmap(eventmap_atm)
-
-        return np.mean(w_cross, axis=0), np.std(w_cross, axis=0)
+            Ncount = Ncount + np.sum(eventmap_atm, axis=1)
+        return np.mean(w_cross, axis=0), np.std(w_cross, axis=0), Ncount / float(N_re)

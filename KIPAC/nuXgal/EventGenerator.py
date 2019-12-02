@@ -8,7 +8,7 @@ import healpy as hp
 from . import Defaults
 from . import file_utils
 
-from .Generator import AtmGenerator, AstroGenerator, AstroGenerator_v2
+from .Generator import AtmGenerator, AstroGenerator_v2
 
 
 # dN/dE \propto E^alpha
@@ -28,7 +28,7 @@ class EventGenerator():
 
     This can generate both atmospheric and astrophysical events
     """
-    def __init__(self, f_gal=0.6):
+    def __init__(self):
         """C'tor
         """
         coszenith_path = os.path.join(Defaults.NUXGAL_IRF_DIR, 'N_coszenith{i}.txt')
@@ -40,15 +40,10 @@ class EventGenerator():
         aeff = file_utils.read_maps_from_fits(aeff_path, Defaults.NEbin)
         cosz = file_utils.read_cosz_from_txt(coszenith_path, Defaults.NEbin)
         cl_gal = file_utils.read_cls_from_txt(gg_cl_path)
-        nevts = np.loadtxt(nevents_path)
-        nastro = 0.003 * nevts
+        self.nevts = np.loadtxt(nevents_path)
 
-        gg_overdensity = hp.fitsfunc.read_map(gg_sample_path)
-        gg_pdf = 1. + gg_overdensity
-        gg_pdf /= gg_pdf.sum()
-
-        self._atm_gen = AtmGenerator(Defaults.NEbin, coszenith=cosz, nevents_expected=nevts)
-        self._astro_gen = AstroGenerator_v2(Defaults.NEbin, f_gal, aeff=aeff, nevents_expected=nastro, cl=cl_gal[0][0:384])
+        self._atm_gen = AtmGenerator(Defaults.NEbin, coszenith=cosz, nevents_expected=self.nevts)
+        self._astro_gen = AstroGenerator_v2(Defaults.NEbin, aeff=aeff)
         self.Aeff_max = aeff.max(1)
 
     @property
@@ -61,7 +56,7 @@ class EventGenerator():
         """Astrophysical event generator"""
         return self._astro_gen
 
-    def astroEvent_galaxy(self, density, intrinsicCounts):
+    def astroEvent_galaxy(self, intrinsicCounts, normalized_counts_map):
         """Generate astrophysical event maps from a galaxy
         distribution and a number of intrinsice events
 
@@ -77,10 +72,10 @@ class EventGenerator():
         counts_map : `np.ndarray`
             Maps of simulated events
         """
-        pdf = density / density.mean()
-        self._astro_gen.pdf.set_value(pdf, clear_parent=False)
+        #pdf = density / density.mean()
+        #self._astro_gen.pdf.set_value(pdf, clear_parent=False)
+        self._astro_gen.normalized_counts_map = normalized_counts_map
         self._astro_gen.nevents_expected.set_value(intrinsicCounts, clear_parent=False)
-
         return self._astro_gen.generate_event_maps(1)[0]
 
 
@@ -167,5 +162,3 @@ class EventGenerator():
         eventnumber_Ebin = np.random.poisson(self._atm_gen.nevents_expected() * duration_year)
         self._atm_gen.nevents_expected.set_value(eventnumber_Ebin, clear_parent=False)
         return self._atm_gen.generate_event_maps(1)[0]
-
-

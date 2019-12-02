@@ -323,6 +323,7 @@ class FigureDict:
         yerr = kwcopy.pop('yerr', None)
         band_1sig = kwcopy.pop('band_1sig', None)
         band_2sig = kwcopy.pop('band_2sig', None)
+        lw = kwcopy.pop('lw', None)
 
         o_dict = self.setup_figure(key, **kwcopy)
 
@@ -344,20 +345,18 @@ class FigureDict:
                 c_dict['label'] = labels[i]
             if colors is not None:
                 c_dict['color'] = colors[i]
-                
-            
             if band_2sig is not None:
                 axes.fill_between(xvals, band_2sig[i][0],  band_2sig[i][1])
 
             if band_1sig is not None:
                 axes.fill_between(xvals, band_1sig[i][0],  band_1sig[i][1])
-
+            axes.plot(xvals, _cl_data.clip(ymin, ymax), lw=lw, **c_dict)
             if do_errs:
                 axes.errorbar(xvals, _cl_data, yerr=yerr[i], **c_dict)
             else:
                 axes.plot(xvals, _cl_data, **c_dict)
 
-        o_dict['leg'] = fig.legend(ncol=2)
+        #o_dict['leg'] = fig.legend(ncol=2)
         fig.subplots_adjust(left=0.18, top=0.9, right=0.9)
         return o_dict
 
