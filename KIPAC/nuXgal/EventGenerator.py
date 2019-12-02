@@ -40,11 +40,10 @@ class EventGenerator():
         aeff = file_utils.read_maps_from_fits(aeff_path, Defaults.NEbin)
         cosz = file_utils.read_cosz_from_txt(coszenith_path, Defaults.NEbin)
         cl_gal = file_utils.read_cls_from_txt(gg_cl_path)
-        nevts = np.loadtxt(nevents_path)
-        nastro = 0.003 * nevts
+        self.nevts = np.loadtxt(nevents_path)
 
-        self._atm_gen = AtmGenerator(Defaults.NEbin, coszenith=cosz, nevents_expected=nevts)
-        self._astro_gen = AstroGenerator_v2(Defaults.NEbin, aeff=aeff) #, nevents_expected=nastro, cl=cl_gal)
+        self._atm_gen = AtmGenerator(Defaults.NEbin, coszenith=cosz, nevents_expected=self.nevts)
+        self._astro_gen = AstroGenerator_v2(Defaults.NEbin, aeff=aeff)
         self.Aeff_max = aeff.max(1)
 
     @property
@@ -163,5 +162,3 @@ class EventGenerator():
         eventnumber_Ebin = np.random.poisson(self._atm_gen.nevents_expected() * duration_year)
         self._atm_gen.nevents_expected.set_value(eventnumber_Ebin, clear_parent=False)
         return self._atm_gen.generate_event_maps(1)[0]
-
-

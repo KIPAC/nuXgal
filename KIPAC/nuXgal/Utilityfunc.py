@@ -81,3 +81,5 @@ def significance(chi_square, dof):
     p_value = distributions.chi2.sf(chi_square, dof-1)
     significance_twoTailNorm = norm.ppf(1.-p_value/2)
     return significance_twoTailNorm
+
+

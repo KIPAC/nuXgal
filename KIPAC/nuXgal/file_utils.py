@@ -80,7 +80,7 @@ def read_maps_from_fits(fileformat, nmap=1):
     return np.vstack(map_list)
 
 
-def write_maps_from_fits(maps, fileformat):
+def write_maps_to_fits(maps, fileformat):
     """Read a map or series of maps from FITS files
 
     Parameter
