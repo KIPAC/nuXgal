@@ -23,7 +23,7 @@ M2_TO_CM2 = 1e4 # Conversion for effective area
 if 'NUXGAL_DIR' in os.environ:
     NUXGAL_DIR = os.environ['NUXGAL_DIR']
 else:
-    NUXGAL_DIR = '.'
+    NUXGAL_DIR = os.path.dirname(__file__).replace('/KIPAC/nuXgal', '')
 print("Using %s for NUXGAL_DIR" % NUXGAL_DIR)
 
 NUXGAL_ANCIL_DIR = os.path.join(NUXGAL_DIR, 'data', 'ancil')
@@ -42,4 +42,5 @@ map_E_center = np.power(10, map_logE_center)
 map_E_center_sq = map_E_center * map_E_center
 
 NCL = 3*NSIDE
-NAML = NCL * (NCL+1) / 2
+NALM = int((NCL) * (NCL+1) / 2)
+MAX_L = NCL - 1

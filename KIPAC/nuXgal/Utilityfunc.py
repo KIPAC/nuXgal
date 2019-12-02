@@ -79,5 +79,22 @@ def significance(chi_square, dof):
     significance : `float`
     """
     p_value = distributions.chi2.sf(chi_square, dof-1)
-    significance_twoTailNorm = norm.ppf(1.-p_value/2)
+    significance_twoTailNorm = norm.isf(p_value/2)
     return significance_twoTailNorm
+
+
+def significance_from_chi(chi):
+    """Construct an significance set of chi values
+
+    Parameters
+    ----------
+    chi : `array`
+    dof : `int`
+
+    Returns
+    -------
+    significance : `float`
+    """
+    chi2 = chi*chi
+    dof = len(chi2)
+    return significance(np.sum(chi2), dof)

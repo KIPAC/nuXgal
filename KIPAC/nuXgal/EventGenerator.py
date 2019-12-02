@@ -8,7 +8,7 @@ import healpy as hp
 from . import Defaults
 from . import file_utils
 
-from .Generator import AtmGenerator, AstroGenerator
+from .Generator import AtmGenerator, AstroGenerator, AstroGenerator_v2
 
 
 # dN/dE \propto E^alpha
@@ -48,7 +48,7 @@ class EventGenerator():
         gg_pdf /= gg_pdf.sum()
 
         self._atm_gen = AtmGenerator(Defaults.NEbin, coszenith=cosz, nevents_expected=nevts)
-        self._astro_gen = AstroGenerator_V2(Defaults.NEbin, f_gal, aeff=aeff, nevents_expected=nastro, cl=cl_gal)
+        self._astro_gen = AstroGenerator_v2(Defaults.NEbin, f_gal, aeff=aeff, nevents_expected=nastro, cl=cl_gal[0][0:384])
         self.Aeff_max = aeff.max(1)
 
     @property
