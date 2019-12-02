@@ -1,9 +1,12 @@
+"""Default values for analysis parameters"""
 
 import os
 
 import numpy as np
 
 import healpy as hp
+
+VERBOSE = False
 
 NSIDE = 128
 
@@ -34,5 +37,22 @@ NPIXEL = hp.pixelfunc.nside2npix(NSIDE)
 map_logE_edge = np.linspace(LOG_EMIN, LOG_EMAX, NEEdges)
 map_logE_center = (map_logE_edge[0:-1] + map_logE_edge[1:]) / 2.
 dlogE = np.mean(map_logE_edge[1:] - map_logE_edge[0:-1])
+map_E_edge = np.power(10, map_logE_edge)
 map_E_center = np.power(10, map_logE_center)
+map_E_center_sq = map_E_center * map_E_center
+
+NCL = 3*NSIDE
+NAML = NCL * (NCL+1) / 2
+
+NCL_galaxyInput = 500
+
+randomseed_galaxy = 42
+
+
+
+# southern sky mask
+exposuremap_theta, exposuremap_phi = hp.pixelfunc.pix2ang(NSIDE, np.arange(NPIXEL))
+mask_muon = np.where(exposuremap_theta > 85. / 180 * np.pi)
+
+
 
