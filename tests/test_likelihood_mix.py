@@ -24,13 +24,16 @@ from KIPAC.nuXgal.hp_utils import vector_apply_mask
 
 from KIPAC.nuXgal.plot_utils import FigureDict
 
-from Utils import MAKE_TEST_PLOTS
+try:
+    from .Utils import MAKE_TEST_PLOTS
+except ImportError:
+    from Utils import MAKE_TEST_PLOTS
 
 
 testfigpath = os.path.join(Defaults.NUXGAL_PLOT_DIR, 'test')
 N_yr = 10.
 
-llh = Likelihood(N_yr=N_yr)#, computeATM=True, computeASTRO =True, N_re=200)
+llh = Likelihood(N_yr=N_yr, computeATM=True, computeASTRO =True, N_re=200)
 
 
 
@@ -127,7 +130,7 @@ def plotLnL(w_data, Ncount, lmin, energyBin):
     figs.save_all(testfigpath, 'pdf')
 
 
-def test_STDdependence(energyBin, energyBin2):
+def test_STDdependence(energyBin=4, energyBin2=3):
     figs = FigureDict()
     o_dict = figs.setup_figure('compare_std', xlabel='$l$', ylabel='$C_l$', figsize=(8, 6))
     fig = o_dict['fig']

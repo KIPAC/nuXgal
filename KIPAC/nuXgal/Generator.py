@@ -241,10 +241,12 @@ class AstroGenerator_v2(Cache):
         self._nside = kwcopy.pop('nside', Defaults.NSIDE)
         self._npix = hp.pixelfunc.nside2npix(self._nside)
 
-        self.cl = CachedArray(self, "_cl", [self._ncl])
-        #self._ncl = kwcopy.pop('ncl', Defaults.NCL_galaxyInput)
+        #self.cl = CachedArray(self, "_cl", [self._ncl])
+        self._ncl = kwcopy.pop('ncl', Defaults.NCL_galaxyInput)
+        self._nalm = int((self._ncl) * (self._ncl+1) / 2)
+
         #self.f_gal = f_gal
-        #self.cl = CachedArray(self, "_cl", [1, self._ncl])
+        self.cl = CachedArray(self, "_cl", [1, self._ncl])
         self.normalized_counts_map = CachedArray(self, "_pdf", [self._npix])
         self.nevents_expected = CachedArray(self, "_nevents", [self._nmap])
         self.aeff = CachedArray(self, "_aeff", [self._nmap, self._npix])
