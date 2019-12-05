@@ -33,8 +33,7 @@ except ImportError:
 testfigpath = os.path.join(Defaults.NUXGAL_PLOT_DIR, 'test')
 N_yr = 10.
 
-llh = Likelihood(N_yr=N_yr, computeATM=True, computeASTRO =True, N_re=200)
-
+llh = Likelihood(N_yr=N_yr)#, computeATM=True, computeASTRO =True, N_re=50)
 
 
 def generateData(f_diff, f_gal, N_yr, fromGalaxy, seed, writeMap=False, basekey='syntheticData'):
@@ -263,10 +262,7 @@ def runMCMC(w_data, Ncount, lmin, Ebinmin, Ebinmax, Nwalker, Nstep=500):
     sampler.run_mcmc(pos, Nstep, progress=True)
 
 
-
-if __name__ == '__main__':
-
-
+def testMCMC():
     datamap = generateData(0.0, 0.6, N_yr, fromGalaxy=False, seed=1709389)
     datamap = vector_apply_mask(datamap, Defaults.mask_muon, copy=False)
     w_data = llh.cf.crossCorrelationFromCountsmap(datamap)
@@ -285,7 +281,14 @@ if __name__ == '__main__':
         truths.append(1)
     llh.plotMCMCchain(ndim, labels, truths)
 
-    #test_STDdependence(4, 3)
+
+
+if __name__ == '__main__':
+
+
+    test_STDdependence(2, 0)
+    
+    #testMCMC()
 
     #lmin = 20
     #energyBin = 3
