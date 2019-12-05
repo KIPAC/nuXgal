@@ -2,7 +2,10 @@
 
 import healpy as hp
 
+import numpy as np
+
 import matplotlib.pyplot as plt
+
 
 
 FONT = {'family':'Arial', 'weight':'normal', 'size': 20}
@@ -251,6 +254,36 @@ class FigureDict:
         o_dict['leg'] = fig.legend()
         return o_dict
 
+    def plot_xyvals(self, key, xvals_list, yvals_list, **kwargs):
+        """Make a simple plot
+
+        Parameters
+        ----------
+        key : `str`
+            Key for the figure
+        xvals_list : `np.ndarray` or `list`
+            The x values
+        yvals_list : `np.ndarray` or `list`
+            The y values
+        """
+        kwcopy = kwargs.copy()
+        kwsetup = {}
+        for kw in ['title', 'xlabel', 'ylabel', 'figsize']:
+            if kw in kwcopy:
+                kwsetup[kw] = kwcopy.pop(kw)
+        o_dict = self.setup_figure(key, **kwsetup)        
+        labels = kwcopy.pop('labels', None)
+        fig = o_dict['fig']
+        axes = o_dict['axes']
+        for i, (xvals, yvals) in enumerate(zip(xvals_list, yvals_list)):
+            if labels is None:
+                label = str(i)
+            else:
+                label = labels[i]
+            axes.scatter(xvals, yvals, label=label, **kwcopy)
+        o_dict['leg'] = fig.legend()
+        return o_dict
+
 
     def plot_cl(self, key, xvals, cl_data, **kwargs):
         """Plot a series of power spectra
@@ -288,6 +321,8 @@ class FigureDict:
         ymin = kwcopy.pop('ymin', 1e-8)
         ymax = kwcopy.pop('ymax', 10.)
         yerr = kwcopy.pop('yerr', None)
+        band_1sig = kwcopy.pop('band_1sig', None)
+        band_2sig = kwcopy.pop('band_2sig', None)
         lw = kwcopy.pop('lw', None)
 
         o_dict = self.setup_figure(key, **kwcopy)
@@ -296,7 +331,8 @@ class FigureDict:
         axes = o_dict['axes']
 
         axes.set_xscale('log')
-        axes.set_yscale('log')
+        if ymin >= 0:
+            axes.set_yscale('log')
         axes.set_ylim(ymin, ymax)
 
         do_errs = bool(yerr is not None)
@@ -309,14 +345,84 @@ class FigureDict:
                 c_dict['label'] = labels[i]
             if colors is not None:
                 c_dict['color'] = colors[i]
+            if band_2sig is not None:
+                axes.fill_between(xvals, band_2sig[i][0],  band_2sig[i][1])
+
+            if band_1sig is not None:
+                axes.fill_between(xvals, band_1sig[i][0],  band_1sig[i][1])
             axes.plot(xvals, _cl_data.clip(ymin, ymax), lw=lw, **c_dict)
             if do_errs:
-                axes.errorbar(xvals, yerr[0][i], yerr=yerr[1][i], color='grey')
+                axes.errorbar(xvals, _cl_data, yerr=yerr[i], **c_dict)
+            else:
+                axes.plot(xvals, _cl_data, **c_dict)
 
         #o_dict['leg'] = fig.legend(ncol=2)
         fig.subplots_adjust(left=0.18, top=0.9, right=0.9)
         return o_dict
 
+
+    def plot_w_cross_norm(self, key, xvals, data, **kwargs):
+        """Plot a series of power spectra
+
+        Parameters
+        ----------
+        key : `str`
+            Key for the figure
+        xvals : `np.ndarray`
+            The l values
+        data : `np.ndarray`
+            The cross-correlations valeus
+
+        Keywords
+        --------
+        ymin : `float`
+            Min for y-axis
+        ymax : `float`
+            Max for y-axis
+        yerr : `list`
+            Means and stds to plot as the y-errors
+        colors : `list`
+            Colors to use for the plots
+
+        Returns
+        -------
+        fig : `Figure`
+            The newly created `Figure`
+        axes : `AxesSubplot`
+            The axes objects
+        """
+        kwcopy = kwargs.copy()
+        colors = kwcopy.pop('colors', None)
+        labels = kwcopy.pop('labels', None)
+        ymin = kwcopy.pop('ymin', -5)
+        ymax = kwcopy.pop('ymax', 5.)
+        yerr = kwcopy.pop('yerr', None)
+
+        o_dict = self.setup_figure(key, **kwcopy)
+
+        fig = o_dict['fig']
+        axes = o_dict['axes']
+
+        axes.set_xscale('log')
+        axes.set_ylim(ymin, ymax)
+
+        do_errs = bool(yerr is not None)
+
+        c_dict = {}
+        for i, _data in enumerate(data):
+            if labels is None:
+                c_dict['label'] = str(i)
+            else:
+                c_dict['label'] = labels[i]
+            if colors is not None:
+                c_dict['color'] = colors[i]
+            axes.plot(xvals, _data.clip(ymin, ymax), **c_dict)
+            if do_errs:
+                axes.errorbar(xvals, yerr[0][i], yerr=yerr[1][i], color='grey')
+
+        o_dict['leg'] = fig.legend(ncol=2)
+        fig.subplots_adjust(left=0.18, top=0.9, right=0.9)
+        return o_dict
 
 
     def plot_intesity_E2(self, key, eVals, intensities, **kwargs):
@@ -374,3 +480,73 @@ class FigureDict:
 
         fig.subplots_adjust(left=0.18, bottom=0.2, right=0.9)
         return o_dict
+
+
+    def plot_hists(self, key, bins, vals_list, **kwargs):
+        """Make a simple plot
+
+        Parameters
+        ----------
+        key : `str`
+            Key for the figure
+        bins : `np.ndarray`
+            The x edges
+        vals_list : `np.ndarray` or `list`
+            The values to histogram
+        """
+        kwcopy = kwargs.copy()
+        kwsetup = {}
+        for kw in ['title', 'xlabel', 'ylabel', 'figsize']:
+            if kw in kwcopy:
+                kwsetup[kw] = kwcopy.pop(kw)
+        o_dict = self.setup_figure(key, **kwsetup)
+        labels = kwcopy.pop('labels', None)
+   
+        fig = o_dict['fig']
+        axes = o_dict['axes']
+        for i, vals in enumerate(vals_list):
+            if labels is None:
+                label = str(i)
+            else:
+                label = labels[i]
+            axes.hist(vals.flat, bins, label=label, **kwcopy)
+        o_dict['leg'] = fig.legend()
+        return o_dict
+
+
+
+    def plot_hist_verus_l(self, key, bins, l_array, data, **kwargs):
+        """Make a simple plot
+
+        Parameters
+        ----------
+        key : `str`
+            Key for the figure
+        bins : `np.ndarray`
+            The x and y bin edges
+        l_values : `np.ndarray`
+            An array of the l_values for the data
+        data : `np.ndarray` or `list`
+            The values to histogram as a function on l
+        """
+        kwcopy = kwargs.copy()
+        kwsetup = {}
+        for kw in ['title', 'xlabel', 'ylabel', 'figsize']:
+            if kw in kwcopy:
+                kwsetup[kw] = kwcopy.pop(kw)
+        o_dict = self.setup_figure(key, **kwsetup)
+        labels = kwcopy.pop('labels', None)
+   
+        fig = o_dict['fig']
+        axes = o_dict['axes']
+
+        hist_2d = np.histogram2d(l_array.flatten(), data.T.flatten(), bins=bins)
+        extent = (bins[0][0], bins[0][-1], bins[1][0], bins[1][-1])
+        
+        img = axes.imshow(hist_2d[0].T, extent=extent, aspect='auto', origin='lower')
+        cbar = plt.colorbar(img)
+        
+        o_dict['img'] = img
+        o_dict['cbar'] = cbar
+        return o_dict
+

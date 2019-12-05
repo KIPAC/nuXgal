@@ -24,14 +24,16 @@ from KIPAC.nuXgal.hp_utils import vector_apply_mask
 
 from KIPAC.nuXgal.plot_utils import FigureDict
 
-from Utils import MAKE_TEST_PLOTS
+try:
+    from .Utils import MAKE_TEST_PLOTS
+except ImportError:
+    from Utils import MAKE_TEST_PLOTS
 
 
 testfigpath = os.path.join(Defaults.NUXGAL_PLOT_DIR, 'test')
 N_yr = 10.
 
-llh = Likelihood(N_yr=N_yr)#, computeATM=True, computeASTRO =True, N_re=200)
-
+llh = Likelihood(N_yr=N_yr)#, computeATM=True, computeASTRO =True, N_re=50)
 
 
 def generateData(f_diff, f_gal, N_yr, fromGalaxy, seed, writeMap=False, basekey='syntheticData'):
@@ -127,7 +129,7 @@ def plotLnL(w_data, Ncount, lmin, energyBin):
     figs.save_all(testfigpath, 'pdf')
 
 
-def test_STDdependence(energyBin, energyBin2):
+def test_STDdependence(energyBin=4, energyBin2=3):
     figs = FigureDict()
     o_dict = figs.setup_figure('compare_std', xlabel='$l$', ylabel='$C_l$', figsize=(8, 6))
     fig = o_dict['fig']
@@ -260,10 +262,7 @@ def runMCMC(w_data, Ncount, lmin, Ebinmin, Ebinmax, Nwalker, Nstep=500):
     sampler.run_mcmc(pos, Nstep, progress=True)
 
 
-
-if __name__ == '__main__':
-
-
+def testMCMC():
     datamap = generateData(0.0, 0.6, N_yr, fromGalaxy=False, seed=1709389)
     datamap = vector_apply_mask(datamap, Defaults.mask_muon, copy=False)
     w_data = llh.cf.crossCorrelationFromCountsmap(datamap)
@@ -282,7 +281,14 @@ if __name__ == '__main__':
         truths.append(1)
     llh.plotMCMCchain(ndim, labels, truths)
 
-    #test_STDdependence(4, 3)
+
+
+if __name__ == '__main__':
+
+
+    test_STDdependence(2, 0)
+    
+    #testMCMC()
 
     #lmin = 20
     #energyBin = 3

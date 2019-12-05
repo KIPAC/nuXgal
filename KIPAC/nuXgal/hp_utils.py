@@ -80,6 +80,7 @@ def vectorize_hp_func(hp_func, in_array, *args, **kwargs):
         Output array
     """
     kwcopy = kwargs.copy()
+    args = kwcopy.pop('args', [])
     out_shape = kwcopy.pop('out_shape', in_array.shape)
     array_2d = reshape_array_to_2d(in_array)
     out_list = [hp_func(array_1d, *args, **kwcopy) for array_1d in array_2d]
@@ -185,7 +186,7 @@ def vector_alm_from_overdensity(overdensity, n_alm, **kwargs):
     return vectorize_hp_func(hp.sphtfunc.map2alm, overdensity_2d, out_shape=out_shape, **kwargs)
 
 
-def vector_overdensity_from_alm(alm, npix, **kwargs):
+def vector_overdensity_from_alm(alm, nside, **kwargs):
     """Convert alm coefficients to overdensity maps
 
     Parameters
@@ -196,15 +197,19 @@ def vector_overdensity_from_alm(alm, npix, **kwargs):
     npix : `int`
         Number of npixels, could be computed from alm size
 
+    nside : `int`
+        Healpy nside parameter
+
     Returns
     -------
     overdensity : `np.array`
         Fractional overdensity per pixel
     """
+    npix = 12*nside*nside
     out_shape = list(alm.shape)
     out_shape[-1] = npix
     alm_2d = reshape_array_to_2d(alm)
-    return vectorize_hp_func(hp.sphtfunc.alm2map, alm_2d, out_shape=out_shape, **kwargs)
+    return vectorize_hp_func(hp.sphtfunc.alm2map, alm_2d, args=[nside], out_shape=out_shape, **kwargs)
 
 
 def vector_cl_from_overdensity(overdensity, n_cl, **kwargs):
@@ -421,32 +426,58 @@ def get_short_long_arrays(array1, array2):
     nshort : `int`
         The size of the first axis of the shorter array
     """
-    na1 = np.sum(array1.shape[0:-1])
-    na2 = np.sum(array2.shape[0:-1])
+    a1_2d = reshape_array_to_2d(array1)
+    a2_2d = reshape_array_to_2d(array2)
+
+    na1 = a1_2d.shape[0]
+    na2 = a2_2d.shape[0]
 
     if na1 >= na2:
-        array_long = array1
-        array_short = array2
+        array_long_2d = a1_2d
+        array_short_2d = a2_2d
         rem = na1 % na2
+        shape_full = list(array1.shape)
     else:
-        array_long = array2
-        array_short = array1
+        array_long_2d = a2_2d
+        array_short_2d = a1_2d
         rem = na2 % na1
+        shape_full = list(array2.shape)
     if rem:
         raise ValueError("Length of longer array not divisible by length of shorter array: %i %i"\
                              % (na1, na2))
 
-    shape_full = list(array_long.shape)
-    array_long_2d = reshape_array_to_2d(array_long)
-    array_short_2d = reshape_array_to_2d(array_short)
     nshort = array_short_2d.shape[0]
-
     return array_long_2d, array_short_2d, shape_full, nshort
 
 
+def cross_correlate_alms_normed(alms1, alms2, **kwargs):
+    """Cross correlate two sets for alms, and normalized them by the power spectra
+    of the two distributions
+
+    Parameters
+    ----------
+    alms1 : `np.array`
+        alm coefficients
+
+    alms1 : `np.array`
+        alm coefficients
+
+    ncl : `int`
+        Number of Cl in output, could be computed from shapes of alms
+
+    Returns
+    -------
+    cls : `np.array`
+        Cross correleation power spectra
+    """
+    cross = hp.sphtfunc.alm2cl(alms1, alms2, **kwargs)
+    cl_1  = hp.sphtfunc.alm2cl(alms1, **kwargs)
+    cl_2  = hp.sphtfunc.alm2cl(alms2, **kwargs)
+    return cross / np.sqrt(cl_1 * cl_2)
+
 
 def vector_cross_correlate_alms(alms1, alms2, ncl, **kwargs):
-    """Cross correlate two sets for alms,
+    """Cross correlate two sets for alms, and normalize them by the power spectra
 
     Parameters
     ----------
@@ -471,8 +502,34 @@ def vector_cross_correlate_alms(alms1, alms2, ncl, **kwargs):
     return np.vstack(cl_list).reshape(shape_full)
 
 
-def vector_cross_correlate_maps(maps1, maps2, ncl, **kwargs):
+def vector_cross_correlate_alms_normed(alms1, alms2, ncl, **kwargs):
     """Cross correlate two sets for alms,
+
+    Parameters
+    ----------
+    alms1 : `np.array`
+        alm coefficients
+
+    alms1 : `np.array`
+        alm coefficients
+
+    ncl : `int`
+        Number of Cl in output, could be computed from shapes of alms
+
+    Returns
+    -------
+    cls : `np.array`
+        Cross correleation power spectra
+    """
+    alms_long_2d, alms_short_2d, shape_full, nshort = get_short_long_arrays(alms1, alms2)
+    shape_full[-1] = ncl
+    cl_list = [cross_correlate_alms_normed(alms_long, alms_short_2d[i % nshort], **kwargs)\
+                   for i, alms_long in enumerate(alms_long_2d)]
+    return np.vstack(cl_list).reshape(shape_full)
+
+
+def vector_cross_correlate_maps(maps1, maps2, ncl, **kwargs):
+    """Cross correlate two sets for maps,
 
     Parameters
     ----------
@@ -495,6 +552,31 @@ def vector_cross_correlate_maps(maps1, maps2, ncl, **kwargs):
     cl_list = [hp.sphtfunc.anafast(maps_long, maps_short_2d[i % nshort], **kwargs)\
                    for i, maps_long in enumerate(maps_long_2d)]
     return np.vstack(cl_list).reshape(shape_full)
+
+
+def vector_cross_correlate_maps_normed(maps1, maps2, ncl, **kwargs):
+    """Cross correlate two sets of maps, and normalize them by the power spectra
+
+    Parameters
+    ----------
+    maps1 : `np.array`
+        Maps to cross-correlate
+
+    masp2 : `np.array`
+        Maps to cross-correlate
+
+    ncl : `int`
+        Number of Cl in output, could be computed from shapes of maps
+
+    Returns
+    -------
+    cls : `np.array`
+        Cross correleation power spectra
+    """
+    nalm = int((ncl) * (ncl+1) / 2)
+    alms1 = vector_alm_from_overdensity(maps1, nalm)
+    alms2 = vector_alm_from_overdensity(maps2, nalm)
+    return vector_cross_correlate_alms_normed(alms1, alms2, ncl, **kwargs)
 
 
 def vector_apply_mask(maps, mask, copy=True):
@@ -524,3 +606,86 @@ def vector_apply_mask(maps, mask, copy=True):
         maps_1d[mask] = 0.
 
     return maps_2d.reshape(orig_shape)
+
+
+
+def get_alm_idxs_for_m(m, max_l):
+    """Extract the indices for a partiuclar m
+
+    Parameters
+    ----------
+    m : `int`
+        The value of m we want
+    max_l : `int` 
+        The maximum value of l
+
+    Returns
+    -------
+    out_idx : `np.ndarray`
+        The output indices
+    """
+    count_start = max_l - m
+    idx_lo = np.sum(np.arange(count_start, max_l)) + 2 * m
+    return np.arange(idx_lo, idx_lo + count_start)
+
+
+def get_alm_idxs_for_l(l, max_l):
+    """Extract the indices for a partiuclar l
+
+    Parameters
+    ----------
+    l : `int`
+        The value of l we want
+    max_l : `int` 
+        The maximum value of l
+
+    Returns
+    -------
+    out_idx : `np.ndarray`
+        The output indices
+    """
+    return np.cumsum(np.hstack([l, np.arange(max_l, max_l-l, -1)]))
+
+
+def alm_for_m(alms, m, max_l):
+    """Extract the alms for particular m
+
+    Parameters
+    ----------
+    alms : `np.ndarray`
+        The input alms
+    m : `int`
+        The value of m we want
+    max_l : `int` 
+        The maximum value of l
+
+    Returns
+    -------
+    out_alms : `np.ndarray`
+        The output arrays
+    """
+    count_start = max_l - m
+    idx_lo = np.sum(np.arange(count_start, max_l)) + 2 * m
+    idx_hi = idx_lo + count_start
+    return alms[idx_lo:idx_hi]
+
+
+def alm_for_l(alms, l, max_l):
+    """Extract the alms for particular l
+
+    Parameters
+    ----------
+    alms : `np.ndarray`
+        The input alms
+    l : `int`
+        The value of m we want
+    max_l : `int` 
+        The maximum value of l
+
+    Returns
+    -------
+    out_alms : `np.ndarray`
+        The output arrays
+    """
+    idx = np.cumsum(np.hstack([l, np.arange(max_l, max_l-l, -1)]))
+    return alms[idx]

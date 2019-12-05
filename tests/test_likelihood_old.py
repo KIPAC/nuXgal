@@ -20,7 +20,10 @@ from KIPAC.nuXgal.hp_utils import vector_apply_mask
 
 from KIPAC.nuXgal.plot_utils import FigureDict
 
-from Utils import MAKE_TEST_PLOTS
+try:
+    from .Utils import MAKE_TEST_PLOTS
+except:
+    from Utils import MAKE_TEST_PLOTS
 
 testfigpath = os.path.join(Defaults.NUXGAL_PLOT_DIR, 'test')
 N_yr = 1.
@@ -87,7 +90,7 @@ def testLnLDistribution_f(testfdiff = True, Ntest = 50, lmin=0, energyBin=2):
         figs.save_all(testfigpath, 'pdf')
 
 
-def testModels(datamap):
+def testModels(datamap=generateData(1., 0.6, N_yr, True, False)):
     TS_model1 = llh.TS([1, 0.6], datamap, 30)
     TS_model2 = llh.TS([0, 0.6], datamap, 30)
     TS_model3 = llh.TS([10, 0.6], datamap, 30)
@@ -110,7 +113,7 @@ def testModels(datamap):
 
 
 
-def testWcrossEnergybin(energyBin, N_re = 40, readfile=True):
+def testWcrossEnergybin(energyBin=4, N_re=40, readfile=True):
 
     if readfile:
         w_astro_mean_file = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'w_astro_mean.txt'))
