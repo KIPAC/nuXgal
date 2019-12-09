@@ -22,10 +22,7 @@ from KIPAC.nuXgal import FigureDict
 
 from KIPAC.nuXgal import Utilityfunc
 
-try:
-    from .Utils import MAKE_TEST_PLOTS
-except ImportError:
-    from Utils import MAKE_TEST_PLOTS
+from Utils import MAKE_TEST_PLOTS
 
 astropath = os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'eventmap_astro{i}.fits')
 bgpath = os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'eventmap_atm{i}.fits')
@@ -604,7 +601,7 @@ def test_MeanCrossCorrelation(N_realization = 50, f_gal = 0.6, f_diff=1, NatmYea
         np.save(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'w_cross_std_'+str(f_gal) + '_' + str(f_diff) +'_' +str(NatmYear)), w_cross_std)
 
 
-def test_STDCrossCorrelation(test_astro=False, test_atm=False, test_mix=True):
+def test_STDCrossCorrelation(test_astro, test_atm, test_mix):
     cf = Analyze()
 
 

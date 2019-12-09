@@ -45,11 +45,11 @@ class Likelihood():
         if computeASTRO:
             self.computeAstrophysicalEventDistribution(N_yr, N_re, True)
         else:
-            #w_astro_mean_file = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'w_astro_mean.txt'))
-            #self.w_astro_mean = w_astro_mean_file.reshape((Defaults.NEbin, Defaults.NCL))
-            self.w_astro_mean = np.zeros((Defaults.NEbin, Defaults.NCL))
-            for i in range(Defaults.NEbin):
-                self.w_astro_mean[i] = self.cf.cl_galaxy[0:Defaults.NCL]
+            w_astro_mean_file = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'w_astro_mean.txt'))
+            self.w_astro_mean = w_astro_mean_file.reshape((Defaults.NEbin, Defaults.NCL))
+            #self.w_astro_mean = np.zeros((Defaults.NEbin, Defaults.NCL))
+            #for i in range(Defaults.NEbin):
+            #    self.w_astro_mean[i] = self.cf.cl_galaxy[0:Defaults.NCL]
             w_astro_std_file = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'w_astro_std.txt'))
             self.w_astro_std = w_astro_std_file.reshape((Defaults.NEbin, Defaults.NCL))
             self.w_astro_std_square = self.w_astro_std ** 2
@@ -57,6 +57,20 @@ class Likelihood():
 
 		# expected fraction of astrophysical events in total counts, assuming f_diff = 1
         self.ratio_atm_astro = self.Ncount_atm / self.Ncount_astro
+
+        # scaled mean and std
+        self.w_model_f1 = np.zeros((Defaults.NEbin, Defaults.NCL))
+        for i in range(Defaults.NEbin):
+            self.w_model_f1[i] = self.cf.cl_galaxy[0:Defaults.NCL]
+
+        self.w_std_square0 = np.zeros((Defaults.NEbin, Defaults.NCL))
+        for i in range(3):
+            self.w_std_square0[i] = self.w_atm_std_square[0] * self.Ncount_atm[0]
+        for i in [3, 4]:
+            self.w_std_square0[i] = self.w_atm_std_square[3] * self.Ncount_atm[3]
+
+
+
 
 
     def computeAtmophericEventDistribution(self, N_yr, N_re, writeMap):
@@ -99,95 +113,44 @@ class Likelihood():
             np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'Ncount_astro_after_masking.txt'), self.Ncount_astro)
 
 
+    def log_likelihood(self, f, w_data, Ncount, lmin, Ebinmin, Ebinmax):
+        w_model_mean = (self.w_model_f1[Ebinmin : Ebinmax].T * f).T
+        w_model_std_square = (self.w_std_square0[Ebinmin : Ebinmax].T / Ncount[Ebinmin : Ebinmax]).T
+        lnL_le = - (w_data[Ebinmin : Ebinmax] - w_model_mean) ** 2 / w_model_std_square
+        return np.sum(lnL_le[:, lmin:])
 
-
-
-    def log_likelihood(self, f, datamap, lmin, energyBin=2, MAKE_TEST_PLOTS=False):
-
-        f_diff, f_gal = f
-        #f_gal = 0.6
-        w_data = self.cf.crossCorrelationFromCountsmap(datamap)
-        w_astro_mean = self.w_astro_mean * f_gal ** 0.5
-        w_astro_std_square = self.w_astro_std_square #/ f_diff * f_gal # ?????
-        fraction_count_astro = 1. / (1. + self.ratio_atm_astro / f_diff)
-        fraction_count_atm = 1. - fraction_count_astro
-
-        #print (f_diff, fraction_count_astro)
-        w_model_mean = (w_astro_mean.T * fraction_count_astro).T #+ (self.w_atm_mean.T * fraction_count_atm).T
-        w_model_std_square = self.w_atm_std_square
-        #w_model_std_square = (w_astro_std_square.T * fraction_count_astro ** 2).T + (self.w_atm_std_square.T * fraction_count_atm ** 2).T
-        #print ((w_model_std_square_old-w_model_std_square)[3]/w_model_std_square[3])
-        #print (self.w_atm_std[3]/self.w_astro_std[3])
-        lnL_array = -(w_data - w_model_mean) ** 2 / w_model_std_square
-
-
-        if MAKE_TEST_PLOTS:
-            testfigpath = os.path.join(Defaults.NUXGAL_PLOT_DIR, 'test')
-            figs = FigureDict()
-            color = ['r', 'orange', 'limegreen', 'skyblue', 'mediumslateblue', 'purple', 'grey']
-            o_dict = figs.setup_figure('lnLtest', xlabel="l", ylabel=r'$w$', figsize=(6, 8))
-            axes = o_dict['axes']
-            w_model_std = w_model_std_square ** 0.5
-            for i in range(Defaults.NEbin):
-                axes.plot(self.cf.l, self.cf.cl_galaxy * 10 ** (i*2) * f_gal ** 0.5, color='grey', lw=1)
-                w_model_mean[i] *= 10 ** (i * 2)
-                w_model_std[i] *= 10 ** (i * 2)
-                w_data[i] *= 10 ** (i * 2)
-            figs.plot_cl('lnLtest', self.cf.l_cl, np.abs(w_model_mean), xlabel="l", ylabel=r'$C_{l}$', colors=color, ymin=1e-7, ymax=1e10, lw=2)
-            figs.plot_cl('lnLtest', self.cf.l_cl, np.abs(w_model_std), xlabel="l", ylabel=r'$C_{l}$', colors=color, ymin=1e-7, ymax=1e10, lw=1)
-            #figs.plot_cl('lnLtest', self.cf.l_cl, np.abs(w_model_mean - w_data), xlabel="l", ylabel=r'$C_{l}$', colors=color, ymin=1e-7, ymax=1e10, lw=2)
-            figs.plot_cl('lnLtest', self.cf.l_cl, np.abs(w_data), colors=color, alpha=0.1, ymin=1e-7, ymax=1e10, lw=3)
-            figs.save_all(testfigpath, 'pdf')
-
-
-        return np.sum(lnL_array[:,lmin:], axis=1)[energyBin]
-
-    def log_likelihood_nullHypo(self, datamap, lmin):
-        w_data = self.cf.crossCorrelationFromCountsmap(datamap)
-        w_model_mean = self.w_atm_mean * 0.
-        w_model_std_square = self.w_atm_std_square
-        lnL_array = -(w_data - w_model_mean) ** 2 / w_model_std_square
-        return np.sum(lnL_array[:, lmin:], axis=1)
-
-    def TS(self, f, datamap, lmin):
-        return 2 * (self.log_likelihood(f, datamap, lmin) - self.log_likelihood_nullHypo(datamap, lmin))
-
-
-    def minimize__lnL(self, datamap, lmin, energyBin):
+    def minimize__lnL(self, w_data, Ncount, lmin, Ebinmin, Ebinmax):
+        len_f = Ebinmax - Ebinmin
         nll = lambda *args: -self.log_likelihood(*args)
-        initial = np.array([1, 0.6 ]) + 0.1 * np.random.randn(2)
-        soln = minimize(nll, initial, args=(datamap, lmin, energyBin))
-        fd_ml, fgal_ml = soln.x
-        return fd_ml, fgal_ml
-
-
-
-
-
+        initial = 0.5 + 0.1 * np.random.randn(len_f)
+        soln = minimize(nll, initial, args=(w_data, Ncount, lmin, Ebinmin, Ebinmax), bounds=[(0, 2)] * (len_f))
+        return soln.x, (self.log_likelihood(soln.x, w_data, Ncount, lmin, Ebinmin, Ebinmax) - self.log_likelihood(np.zeros(len_f), w_data, Ncount, lmin, Ebinmin, Ebinmax)) * 2
 
 
     def log_prior(self, f):
-        f_diff, f_gal = f
-        if 0. < f_diff < 2. and 0. < f_gal < 1.:
+        if np.min(f) > 0. and np.max(f) < 2.:
             return 0.
         return -np.inf
 
-    def log_probability(self, f, datamap, energyBin, lmin):
+
+    def log_probability(self, f, w_data, Ncount, lmin, Ebinmin, Ebinmax):
         lp = self.log_prior(f)
         if not np.isfinite(lp):
             return -np.inf
-        return lp + self.log_likelihood(f, datamap, energyBin, lmin)
+        return lp + self.log_likelihood(f, w_data, Ncount, lmin, Ebinmin, Ebinmax)
 
 
 
-    def runMCMC(self, datamap, energyBin, Nwalker, Nstep=500, lmin=10):
-        ndim = 2
-        pos = np.array([1., 0.6]) + np.random.randn(Nwalker, ndim) * 1e-2
+    def runMCMC(self, w_data, Ncount, lmin, Ebinmin, Ebinmax, Nwalker, Nstep=500):
+        ndim = Ebinmax - Ebinmin
+        pos = 0.3 + np.random.randn(Nwalker, ndim) * 0.1
         nwalkers, ndim = pos.shape
-        backend =  emcee.backends.HDFBackend(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'test.h5'))
+        backend =  emcee.backends.HDFBackend(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'test.h5'))
         backend.reset(nwalkers, ndim)
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, self.log_probability, args=(datamap, energyBin, lmin), backend=backend)
-        sampler.run_mcmc(pos, Nstep, progress=True);
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, self.log_probability, args=(w_data, Ncount, lmin, Ebinmin, Ebinmax), backend=backend)
+        sampler.run_mcmc(pos, Nstep, progress=True)
+
+
 
 
 
