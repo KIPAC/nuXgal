@@ -14,20 +14,14 @@ from .EventGenerator import *
 from .Analyze import *
 from . import Defaults
 from .plot_utils import FigureDict
-
+from .GalaxySample import GalaxySample
 
 class Likelihood():
-    def __init__(self, N_yr=1., computeATM = False, computeASTRO = False, N_re=40):
-        self.cf = Analyze()
+    def __init__(self, N_yr=1., computeATM = False, computeASTRO = False, galaxyName='analy', N_re=40):
         self.eg = EventGenerator()
-
-        # calculate expected event number using IceCube diffuse neutrino flux
-        dN_dE_astro = lambda E_GeV: 1.44E-18 * (E_GeV / 100e3)**(-2.28) # GeV^-1 cm^-2 s^-1 sr^-1, muon neutrino
-        # total expected number of events before cut, for one year data
-        self.N_2012_Aeffmax = np.zeros(Defaults.NEbin)
-        for i in np.arange(Defaults.NEbin):
-            self.N_2012_Aeffmax[i] = dN_dE_astro(10.**Defaults.map_logE_center[i]) * (10. ** Defaults.map_logE_center[i] * np.log(10.) * Defaults.dlogE) * (self.eg.Aeff_max[i] * 1E4) * (333 * 24. * 3600) * 4 * np.pi
-
+        self.gs = GalaxySample()
+        self.galaxyName = galaxyName
+        self.cf = Analyze(self.gs.getOverdensity(galaxyName))
 
         # compute or load w_atm distribution
         if computeATM:
@@ -47,21 +41,16 @@ class Likelihood():
         else:
             w_astro_mean_file = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'w_astro_mean.txt'))
             self.w_astro_mean = w_astro_mean_file.reshape((Defaults.NEbin, Defaults.NCL))
-            #self.w_astro_mean = np.zeros((Defaults.NEbin, Defaults.NCL))
-            #for i in range(Defaults.NEbin):
-            #    self.w_astro_mean[i] = self.cf.cl_galaxy[0:Defaults.NCL]
             w_astro_std_file = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'w_astro_std.txt'))
             self.w_astro_std = w_astro_std_file.reshape((Defaults.NEbin, Defaults.NCL))
             self.w_astro_std_square = self.w_astro_std ** 2
             self.Ncount_astro = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'Ncount_astro_after_masking.txt'))
 
-		# expected fraction of astrophysical events in total counts, assuming f_diff = 1
-        self.ratio_atm_astro = self.Ncount_atm / self.Ncount_astro
 
         # scaled mean and std
         self.w_model_f1 = np.zeros((Defaults.NEbin, Defaults.NCL))
         for i in range(Defaults.NEbin):
-            self.w_model_f1[i] = self.cf.cl_galaxy[0:Defaults.NCL]
+            self.w_model_f1[i] = self.gs.getCL(self.galaxyName)[0:Defaults.NCL]
 
         self.w_std_square0 = np.zeros((Defaults.NEbin, Defaults.NCL))
         for i in range(3):
@@ -72,9 +61,26 @@ class Likelihood():
 
 
 
-
     def computeAtmophericEventDistribution(self, N_yr, N_re, writeMap):
-        self.w_atm_mean, self.w_atm_std, self.Ncount_atm = self.cf.crossCorrelation_atm_std(N_yr, N_re)
+        w_cross = np.zeros((N_re, Defaults.NEbin, 3 * Defaults.NSIDE))
+        Ncount = np.zeros(Defaults.NEbin)
+
+        eventnumber_Ebin = np.random.poisson(self.eg._atm_gen.nevents_expected() * N_yr)
+        self.eg._atm_gen.nevents_expected.set_value(eventnumber_Ebin, clear_parent=False)
+        eventmaps = self.eg._atm_gen.generate_event_maps(N_re)
+
+
+        for iteration in np.arange(N_re):
+            print("iter ", iteration)
+            eventmap_atm = eventmaps[iteration]
+            eventmap_atm = hp_utils.vector_apply_mask(eventmap_atm, Defaults.mask_muon, copy=False)
+            w_cross[iteration] = self.cf.crossCorrelationFromCountsmap(eventmap_atm)
+            Ncount = Ncount + np.sum(eventmap_atm, axis=1)
+
+        self.w_atm_mean = np.mean(w_cross, axis=0)
+        self.w_atm_std = np.std(w_cross, axis=0)
+        self.Ncount_atm = Ncount / float(N_re)
+
         self.w_atm_std_square = self.w_atm_std ** 2
         if writeMap:
             np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'w_atm_mean.txt'), self.w_atm_mean)
@@ -84,25 +90,21 @@ class Likelihood():
 
     def computeAstrophysicalEventDistribution(self, N_yr, N_re, writeMap):
 
-        np.random.seed(Defaults.randomseed_galaxy)
-        density_nu = hp.sphtfunc.synfast(self.cf.cl_galaxy, Defaults.NSIDE)
-        density_nu = np.exp(density_nu)
-        density_nu /= density_nu.sum() # a unique neutrino source distribution that shares the randomness of density_g
+        density_nu = self.gs.getDensity(self.galaxyName)
+        #np.random.seed(Defaults.randomseed_galaxy)
+        #density_nu = hp.sphtfunc.synfast(self.cf.cl_galaxy, Defaults.NSIDE)
+        #density_nu = np.exp(density_nu)
         Ncount_astro = np.zeros(Defaults.NEbin)
         w_cross_array = np.zeros((N_re, Defaults.NEbin, Defaults.NCL))
         for i in range(N_re):
             if i % 1 == 0:
                 print(i)
-            countsmap = self.eg.astroEvent_galaxy(self.N_2012_Aeffmax * N_yr, density_nu)
+            countsmap = self.eg.astroEvent_galaxy(self.eg.Nastro_1yr_Aeffmax * N_yr, density_nu)
             countsmap = hp_utils.vector_apply_mask(countsmap, Defaults.mask_muon, copy=False)
             w_cross_array[i] = self.cf.crossCorrelationFromCountsmap(countsmap)
             Ncount_astro += np.sum(countsmap, axis=1)
 
         self.w_astro_mean = np.mean(w_cross_array, axis=0)
-        #self.w_astro_mean = np.zeros((Defaults.NEbin, Defaults.NCL))
-        #for i in range(Defaults.NEbin):
-        #    self.w_astro_mean[i] = self.cf.cl_galaxy[0:Defaults.NCL]
-
         self.w_astro_std = np.std(w_cross_array, axis=0)
         self.w_astro_std_square = self.w_astro_std ** 2
         self.Ncount_astro = Ncount_astro / N_re
@@ -149,8 +151,6 @@ class Likelihood():
         backend.reset(nwalkers, ndim)
         sampler = emcee.EnsembleSampler(nwalkers, ndim, self.log_probability, args=(w_data, Ncount, lmin, Ebinmin, Ebinmax), backend=backend)
         sampler.run_mcmc(pos, Nstep, progress=True)
-
-
 
 
 

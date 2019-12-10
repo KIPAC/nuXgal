@@ -2,56 +2,73 @@ import os
 
 import numpy as np
 
+import pytest
+
 import healpy as hp
+
+from scipy import integrate
+
+from KIPAC.nuXgal import Analyze
+
+from KIPAC.nuXgal import EventGenerator
 
 from KIPAC.nuXgal import Defaults
 
 from KIPAC.nuXgal import file_utils
 
-from KIPAC.nuXgal import FigureDict
+from KIPAC.nuXgal import hp_utils
 
-import matplotlib.pyplot as plt
+from KIPAC.nuXgal import FigureDict
 
 from KIPAC.nuXgal import Utilityfunc
 
-galaxymap_path = os.path.join(Defaults.NUXGAL_ANCIL_DIR,'WISE_galaxymap.fits')
-testfigpath = Defaults.NUXGAL_PLOT_DIR
+from KIPAC.nuXgal import GalaxySample
+
+import matplotlib.pyplot as plt
 
 
-def plotGalaxymap():
+for dirname in [Defaults.NUXGAL_SYNTHETICDATA_DIR, Defaults.NUXGAL_PLOT_DIR]:
+    try:
+        os.makedirs(dirname)
+    except OSError:
+        pass
 
-    galaxymap = hp.fitsfunc.read_map(galaxymap_path)
-    hp.mollview(galaxymap, title="Mollview image RING", max=100)
-    testfigfile = os.path.join(testfigpath, 'WISE_galaxymap.pdf')
-    plt.savefig(testfigfile)
+
+def testGalaxy():
+    gs = GalaxySample.GalaxySample()
+    gs.plotGalaxymap('WISE')
+    gs.plotCL()
 
 
-def getCl():
-    galaxymap = hp.fitsfunc.read_map(galaxymap_path)
-    cl = hp.anafast(Utilityfunc.overdensityMap(galaxymap))
-    ell = np.arange(len(cl))
 
-    plt.figure(figsize=(8, 6))
-    plt.yscale('log')
-    plt.xscale('log')
-    analyCL = np.loadtxt('data/ancil/Cl_ggRM.dat')
-    plt.plot(np.arange(500), analyCL[0:500], label='analytical')
-    plt.plot(ell, cl * 0.3, label='WISE-2MASS galaxies x 0.3')
+def testOverdensity():
+    gs = GalaxySample.GalaxySample(computeGalaxy = True)
+    galaxymap = gs.generateGalaxy(N_g = 5000000, write_map = False)
+    analy_galaxymap_overdensity = Utilityfunc.overdensityMap(galaxymap)
+    alm = hp.sphtfunc.map2alm(analy_galaxymap_overdensity)
+    map = hp.sphtfunc.alm2map(alm, Defaults.NSIDE)
 
-    plt.xlabel("$\ell$")
-    plt.ylabel("$C_{\ell}$")
-    plt.grid()
-    plt.legend()
-    plt.ylim(1e-7, 1e-1)
-    testfigfile = os.path.join(testfigpath, 'WISE_galaxy_cl.pdf')
-    plt.savefig(testfigfile)
+    galaxymap_normalized = galaxymap / np.sum(galaxymap)
 
-def getalm():
-    galaxymap = hp.fitsfunc.read_map(galaxymap_path)
-    alm = hp.sphtfunc.map2alm(Utilityfunc.overdensityMap(galaxymap))
-    print (alm)
+    hp.mollview(analy_galaxymap_overdensity, title="analyoverdensity")
+    plt.savefig('plots/analyoverdensity.pdf')
+
+    hp.mollview(map, title="map from alm")
+    plt.savefig('plots/mapFromALM.pdf')
+
+    hp.mollview(galaxymap_normalized, title="galaxymap normalized")
+    plt.savefig('plots/galaxymap_normalized.pdf')
+
+
+    np.random.seed(Defaults.randomseed_galaxy)
+    density_g = hp.sphtfunc.synfast(gs.analyCL, Defaults.NSIDE)
+    density_g = np.exp(density_g)
+    density_g /= density_g.sum()
+    hp.mollview(density_g, title='density_g')
+    plt.savefig('plots/density_g.pdf')
+
 
 if __name__ == '__main__':
-    #plotGalaxymap()
-    #getCl()
-    getalm()
+
+    #testGalaxy()
+    testOverdensity()

@@ -28,44 +28,12 @@ from Utils import MAKE_TEST_PLOTS
 
 
 testfigpath = os.path.join(Defaults.NUXGAL_PLOT_DIR, 'test')
-N_yr = 10.
+N_yr = 3
 
-llh = Likelihood(N_yr=N_yr)#, computeATM=True, computeASTRO =True, N_re=50)
-
-
-
-def generateData(f_diff, f_gal, N_yr, fromGalaxy, seed, writeMap=False, basekey='syntheticData'):
-    cf = Analyze()
-    eg = EventGenerator()
-
-    #np.random.seed(132842)
-    countsmap = eg.atmEvent(N_yr)
-
-    if f_diff != 0:
-        if fromGalaxy:
-            np.random.seed(Defaults.randomseed_galaxy)
-
-        density_nu = hp.sphtfunc.synfast(cf.cl_galaxy * f_gal, Defaults.NSIDE, verbose=False)
-        density_nu = np.exp(density_nu)
-        density_nu /= density_nu.sum() # a unique neutrino source distribution that shares the randomness of density_g
-
-        if fromGalaxy:
-            np.random.seed(seed)
-
-        countsmap = countsmap + eg.astroEvent_galaxy(llh.N_2012_Aeffmax * N_yr * f_diff, density_nu)
-
-    countsmap = vector_apply_mask(countsmap, Defaults.mask_muon, copy=False)
-
-    if writeMap:
-        filename_format = os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, basekey + '{i}.fits')
-        write_maps_to_fits(countsmap, filename_format)
-    return countsmap
+llh = Likelihood(N_yr=N_yr)#, computeATM=True, computeASTRO =True, N_re=10)
 
 
 
-def readData(basekey='syntheticData'):
-    filename_format = os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, basekey + '{i}.fits')
-    return read_maps_from_fits(filename_format, Defaults.NEbin)
 
 
 def showDataModel(datamap, energyBin):
@@ -211,7 +179,7 @@ def test_TS_distribution(readfile = True):
 
 
 def testMCMC():
-    datamap = generateData(0.0, 0.6, N_yr, fromGalaxy=False, seed=1709389)
+    datamap = llh.eg.computeSyntheticData(N_yr, fromGalaxy=False)
     datamap = vector_apply_mask(datamap, Defaults.mask_muon, copy=False)
     w_data = llh.cf.crossCorrelationFromCountsmap(datamap)
     Ncount = np.sum(datamap, axis=1)

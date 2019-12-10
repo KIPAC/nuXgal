@@ -2,12 +2,11 @@
 
 import os
 import numpy as np
-
 import healpy as hp
 
 from . import Defaults
 from . import file_utils
-
+from .GalaxySample import GalaxySample
 from .Generator import AtmGenerator, AstroGenerator_v2
 
 
@@ -34,17 +33,22 @@ class EventGenerator():
         coszenith_path = os.path.join(Defaults.NUXGAL_IRF_DIR, 'N_coszenith{i}.txt')
         aeff_path = os.path.join(Defaults.NUXGAL_IRF_DIR, 'Aeff{i}.fits')
         nevents_path = os.path.join(Defaults.NUXGAL_IRF_DIR, 'eventNumber_Ebin_perIC86year.txt')
-        gg_sample_path = os.path.join(Defaults.NUXGAL_ANCIL_DIR, 'galaxySampleOverdensity.fits')
-        gg_cl_path = os.path.join(Defaults.NUXGAL_ANCIL_DIR, 'Cl_ggRM.dat')
 
         aeff = file_utils.read_maps_from_fits(aeff_path, Defaults.NEbin)
         cosz = file_utils.read_cosz_from_txt(coszenith_path, Defaults.NEbin)
-        cl_gal = file_utils.read_cls_from_txt(gg_cl_path)
-        self.nevts = np.loadtxt(nevents_path)
 
+        self.nevts = np.loadtxt(nevents_path)
         self._atm_gen = AtmGenerator(Defaults.NEbin, coszenith=cosz, nevents_expected=self.nevts)
         self._astro_gen = AstroGenerator_v2(Defaults.NEbin, aeff=aeff)
         self.Aeff_max = aeff.max(1)
+
+        # calculate expected event number using IceCube diffuse neutrino flux
+        dN_dE_astro = lambda E_GeV: 1.44E-18 * (E_GeV / 100e3)**(-2.28) # GeV^-1 cm^-2 s^-1 sr^-1, muon neutrino
+        # total expected number of events before cut, for one year data
+        self.Nastro_1yr_Aeffmax = np.zeros(Defaults.NEbin)
+        for i in np.arange(Defaults.NEbin):
+            self.Nastro_1yr_Aeffmax[i] = dN_dE_astro(10.**Defaults.map_logE_center[i]) * (10. ** Defaults.map_logE_center[i] * np.log(10.) * Defaults.dlogE) * (self.Aeff_max[i] * 1E4) * (333 * 24. * 3600) * 4 * np.pi
+
 
     @property
     def atm_gen(self):
@@ -79,7 +83,8 @@ class EventGenerator():
         return self._astro_gen.generate_event_maps(1)[0]
 
 
-    def astroEvent_galaxy_powerlaw(self, density, Ntotal, alpha, emin=1e2, emax=1e9):
+
+    def astroEvent_galaxy_powerlaw(self, Ntotal, normalized_counts_map, alpha, emin=1e2, emax=1e9):
         """Generate astrophysical events from a power law
         distribution
 
@@ -102,7 +107,7 @@ class EventGenerator():
         """
         energy = randPowerLaw(alpha, Ntotal, emin, emax)
         intrinsicCounts = np.histogram(np.log10(energy), Defaults.map_logE_edge)
-        return self.astroEvent_galaxy(density, intrinsicCounts)
+        return self.astroEvent_galaxy(intrinsicCounts, normalized_counts_map)
 
 
     def atmBG_coszenith(self, eventNumber, energyBin):
@@ -123,28 +128,6 @@ class EventGenerator():
         return self._atm_gen.cosz_cdf()[energyBin](np.random.rand(eventNumber))
 
 
-    def atmEvent_powerlaw(self, eventNumber, index):
-        """Generate atmosphere event maps from a powerlaw and a number of input events
-
-        Parameters
-        ----------
-        eventNumber : `int`
-            Number of events to generate
-        index : `float`
-            Power law index
-
-        Returns
-        -------
-        counts_map : `np.ndarray`
-            Maps of simulated events
-        """
-        event_energy = randPowerLaw(index, eventNumber,
-                                    Defaults.map_E_center[0],
-                                    Defaults.map_E_center[-1])
-        eventnumber_Ebin = np.histogram(np.log10(event_energy), Defaults.map_logE_edge)[0]
-        self._atm_gen.nevents_expected.set_value(eventnumber_Ebin, clear_parent=False)
-        return self._atm_gen.generate_event_maps(1)[0]
-
 
     def atmEvent(self, duration_year):
         """Generate atmosphere event maps from expected rates per year
@@ -162,3 +145,51 @@ class EventGenerator():
         eventnumber_Ebin = np.random.poisson(self._atm_gen.nevents_expected() * duration_year)
         self._atm_gen.nevents_expected.set_value(eventnumber_Ebin, clear_parent=False)
         return self._atm_gen.generate_event_maps(1)[0]
+
+
+
+    def computeSyntheticData(self, N_yr, fromGalaxy, f_diff=1., write_map=False):
+        """ f_diff = 1 means injecting astro events that sum up to 100% of diffuse muon neutrino flux """
+        f_astro = np.zeros(Defaults.NEbin)
+        f_atm = np.zeros(Defaults.NEbin)
+        for i in range(Defaults.NEbin):
+            if self.nevts[i] != 0.:
+                f_astro[i] = self.Nastro_1yr_Aeffmax[i] * f_diff / self.nevts[i]
+                f_atm[i] = 1. - f_astro[i]
+            elif self.Nastro_1yr_Aeffmax[i] != 0.:
+                f_astro[i] = 1.
+            else:
+                continue
+
+        # generate atmospheric eventmaps
+        Natm = np.random.poisson(self.nevts * N_yr * f_atm)
+        self._atm_gen.nevents_expected.set_value(Natm, clear_parent=False)
+        atm_map = self._atm_gen.generate_event_maps(1)[0]
+
+        # generate astro maps
+        gs = GalaxySample()
+        if fromGalaxy:
+            density_nu = gs.analy_density
+            print (density_nu.where(density_nu < 0.))
+
+        else:
+            density_nu = hp.sphtfunc.synfast(gs.analyCL, Defaults.NSIDE, verbose=False)
+            density_nu = np.exp(density_nu)
+            density_nu /= density_nu.sum()
+
+        Nastro = np.random.poisson(self.Nastro_1yr_Aeffmax * N_yr * f_diff)
+        astro_map = self.astroEvent_galaxy(Nastro, density_nu)
+
+        countsmap = atm_map + astro_map
+
+        if write_map:
+            basekey = 'syntheticData'
+            filename_format = os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, basekey + '{i}.fits')
+            write_maps_to_fits(countsmap, filename_format)
+
+        return countsmap
+
+
+    def readSyntheticData(self, basekey='syntheticData'):
+        filename_format = os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, basekey + '{i}.fits')
+        return read_maps_from_fits(filename_format, Defaults.NEbin)

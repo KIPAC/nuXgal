@@ -241,21 +241,21 @@ class AstroGenerator_v2(Cache):
         self._nside = kwcopy.pop('nside', Defaults.NSIDE)
         self._npix = hp.pixelfunc.nside2npix(self._nside)
 
-        #self.cl = CachedArray(self, "_cl", [self._ncl])
-        self._ncl = kwcopy.pop('ncl', Defaults.NCL_galaxyInput)
-        self._nalm = int((self._ncl) * (self._ncl+1) / 2)
+        #self._ncl = kwcopy.pop('ncl', Defaults.NCL_galaxyInput)
+        #self._nalm = int((self._ncl) * (self._ncl+1) / 2)
+        #self.cl = CachedArray(self, "_cl", [1, self._ncl])
 
-        #self.f_gal = f_gal
-        self.cl = CachedArray(self, "_cl", [1, self._ncl])
+
         self.normalized_counts_map = CachedArray(self, "_pdf", [self._npix])
         self.nevents_expected = CachedArray(self, "_nevents", [self._nmap])
         self.aeff = CachedArray(self, "_aeff", [self._nmap, self._npix])
-        
-        self.syn_alm_full = CachedArray(self, self._syn_alm_full, [self._nalm])
-        self.syn_alm_fgal = CachedArray(self, self._syn_alm_fgal, [self._nalm])
 
-        self.syn_overdensity_full = CachedArray(self, self._syn_overdensity_full, [self._npix])
-        self.syn_overdensity_fgal = CachedArray(self, self._syn_overdensity_fgal, [self._npix])
+        #self.syn_alm_full = CachedArray(self, self._syn_alm_full, [self._nalm])
+        #self.syn_alm_fgal = CachedArray(self, self._syn_alm_fgal, [self._nalm])
+
+        #self.syn_overdensity_full = CachedArray(self, self._syn_overdensity_full, [self._npix])
+        #self.syn_overdensity_fgal = CachedArray(self, self._syn_overdensity_fgal, [self._npix])
+
         self.prob_reject = CachedArray(self, self._prob_reject, [self._nmap, self._npix])
         self.mean_reject = CachedArray(self, self._mean_reject, [self._nmap])
         Cache.__init__(self, **kwcopy)
@@ -269,18 +269,6 @@ class AstroGenerator_v2(Cache):
     def _mean_reject(self):
         return self.prob_reject().mean(1)
 
-    def _syn_alm_full(self):
-        return hp_utils.vector_generate_alm_from_cl(self.cl(), self._nalm, 1)[0]
-
-    def _syn_alm_fgal(self):
-        syn_alm_set = self.syn_alm_full()
-        return syn_alm_set * self.f_gal
-
-    def _syn_overdensity_full(self):
-        return hp_utils.vector_overdensity_from_alm(self.syn_alm_full(), self._nside)
-
-    def _syn_overdensity_fgal(self):
-        return hp_utils.vector_overdensity_from_alm(self.syn_alm_fgal(), self._nside)
 
     def generate_event_maps(self, n_trials, **kwargs):
         """Generate a set of `healpy` maps
@@ -295,14 +283,7 @@ class AstroGenerator_v2(Cache):
         maps : `np.ndarray`
             An array of (nTrials x self._nmap) synthetic maps
         """
-        #pdf_expand = np.expand_dims(self.pdf(), 0)
-        #nevents_expand = np.expand_dims(self.nevents_expected()/self.mean_reject(), -1)        
-        #nevents_expand = np.expand_dims(self.nevents_expected(), -1)
-        #syn_overdensities = hp_utils.vector_generate_overdensity_from_cl(self.f_gal*self.cl(), self._nside, n_trials, **kwargs)
-        #normalized_counts_map = np.exp(syn_overdensities[i])
-        #normalized_counts_map /= normalized_counts_map.sum()
-        
-        
+
         event_map_list = []
         for i in range(n_trials):
             for j in range(self._nmap):
@@ -325,7 +306,7 @@ class AstroGenerator_v2(Cache):
         maps : `np.ndarray`
             An array of (nTrials x self._nmap) synthetic maps
         """
-        
+
         event_map_list = []
         for i in range(n_trials):
             for i in range(n_trials):
@@ -333,5 +314,5 @@ class AstroGenerator_v2(Cache):
                     expected_counts_map = self.normalized_counts_map * self.nevents_expected()[j]
                     observed_counts_map = np.random.poisson(expected_counts_map)
                     event_map_list.append(observed_counts_map)
-         
+
         return np.vstack(event_map_list).reshape((n_trials, self._nmap, self._npix))
