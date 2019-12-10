@@ -15,6 +15,8 @@ from .Analyze import *
 from . import Defaults
 from .plot_utils import FigureDict
 from .GalaxySample import GalaxySample
+from .hp_utils import vector_apply_mask
+
 
 class Likelihood():
     def __init__(self, N_yr=1., computeATM = False, computeASTRO = False, galaxyName='analy', N_re=40):
@@ -27,8 +29,8 @@ class Likelihood():
         if computeATM:
             self.computeAtmophericEventDistribution(N_yr, N_re, True)
         else:
-            w_atm_mean_file = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'w_atm_mean.txt'))
-            self.w_atm_mean  = w_atm_mean_file.reshape((Defaults.NEbin, Defaults.NCL))
+            #w_atm_mean_file = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'w_atm_mean.txt'))
+            #self.w_atm_mean  = w_atm_mean_file.reshape((Defaults.NEbin, Defaults.NCL))
             w_atm_std_file = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'w_atm_std.txt'))
             self.w_atm_std  = w_atm_std_file.reshape((Defaults.NEbin, Defaults.NCL))
             self.w_atm_std_square  =  self.w_atm_std ** 2
@@ -36,21 +38,21 @@ class Likelihood():
 
 
         # compute or load w_astro distribution
-        if computeASTRO:
-            self.computeAstrophysicalEventDistribution(N_yr, N_re, True)
-        else:
-            w_astro_mean_file = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'w_astro_mean.txt'))
-            self.w_astro_mean = w_astro_mean_file.reshape((Defaults.NEbin, Defaults.NCL))
-            w_astro_std_file = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'w_astro_std.txt'))
-            self.w_astro_std = w_astro_std_file.reshape((Defaults.NEbin, Defaults.NCL))
-            self.w_astro_std_square = self.w_astro_std ** 2
-            self.Ncount_astro = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'Ncount_astro_after_masking.txt'))
+        #if computeASTRO:
+        #    self.computeAstrophysicalEventDistribution(N_yr, N_re, True)
+        #else:
+            #w_astro_mean_file = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'w_astro_mean.txt'))
+            #self.w_astro_mean = w_astro_mean_file.reshape((Defaults.NEbin, Defaults.NCL))
+            #w_astro_std_file = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'w_astro_std.txt'))
+            #self.w_astro_std = w_astro_std_file.reshape((Defaults.NEbin, Defaults.NCL))
+            #self.w_astro_std_square = self.w_astro_std ** 2
+            #self.Ncount_astro = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'Ncount_astro_after_masking.txt'))
 
 
         # scaled mean and std
         self.w_model_f1 = np.zeros((Defaults.NEbin, Defaults.NCL))
         for i in range(Defaults.NEbin):
-            self.w_model_f1[i] = self.gs.getCL(self.galaxyName)[0:Defaults.NCL]
+            self.w_model_f1[i] = self.gs.getCL(self.galaxyName)
 
         self.w_std_square0 = np.zeros((Defaults.NEbin, Defaults.NCL))
         for i in range(3):
@@ -62,10 +64,11 @@ class Likelihood():
 
 
     def computeAtmophericEventDistribution(self, N_yr, N_re, writeMap):
+
         w_cross = np.zeros((N_re, Defaults.NEbin, 3 * Defaults.NSIDE))
         Ncount = np.zeros(Defaults.NEbin)
 
-        eventnumber_Ebin = np.random.poisson(self.eg._atm_gen.nevents_expected() * N_yr)
+        eventnumber_Ebin = np.random.poisson(self.eg.nevts * N_yr)
         self.eg._atm_gen.nevents_expected.set_value(eventnumber_Ebin, clear_parent=False)
         eventmaps = self.eg._atm_gen.generate_event_maps(N_re)
 
@@ -77,13 +80,14 @@ class Likelihood():
             w_cross[iteration] = self.cf.crossCorrelationFromCountsmap(eventmap_atm)
             Ncount = Ncount + np.sum(eventmap_atm, axis=1)
 
-        self.w_atm_mean = np.mean(w_cross, axis=0)
+        #self.w_atm_mean = np.mean(w_cross, axis=0)
         self.w_atm_std = np.std(w_cross, axis=0)
         self.Ncount_atm = Ncount / float(N_re)
 
+
         self.w_atm_std_square = self.w_atm_std ** 2
         if writeMap:
-            np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'w_atm_mean.txt'), self.w_atm_mean)
+            #np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'w_atm_mean.txt'), self.w_atm_mean)
             np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'w_atm_std.txt'), self.w_atm_std)
             np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'Ncount_atm_after_masking.txt'), self.Ncount_atm)
 
@@ -91,9 +95,6 @@ class Likelihood():
     def computeAstrophysicalEventDistribution(self, N_yr, N_re, writeMap):
 
         density_nu = self.gs.getDensity(self.galaxyName)
-        #np.random.seed(Defaults.randomseed_galaxy)
-        #density_nu = hp.sphtfunc.synfast(self.cf.cl_galaxy, Defaults.NSIDE)
-        #density_nu = np.exp(density_nu)
         Ncount_astro = np.zeros(Defaults.NEbin)
         w_cross_array = np.zeros((N_re, Defaults.NEbin, Defaults.NCL))
         for i in range(N_re):
@@ -127,6 +128,21 @@ class Likelihood():
         initial = 0.5 + 0.1 * np.random.randn(len_f)
         soln = minimize(nll, initial, args=(w_data, Ncount, lmin, Ebinmin, Ebinmax), bounds=[(0, 2)] * (len_f))
         return soln.x, (self.log_likelihood(soln.x, w_data, Ncount, lmin, Ebinmin, Ebinmax) - self.log_likelihood(np.zeros(len_f), w_data, Ncount, lmin, Ebinmin, Ebinmax)) * 2
+
+    def TS_distribution(self, N_re, N_yr, lmin, f_diff, galaxyName, writeData=True):
+        TS_array = np.zeros(N_re)
+        for i in range(N_re):
+            if i % 10 == 0:
+                print (i)
+            datamap = self.eg.computeSyntheticData(N_yr, f_diff, self.gs.getDensity(galaxyName))
+            datamap = vector_apply_mask(datamap, Defaults.mask_muon, copy=False)
+            w_data = self.cf.crossCorrelationFromCountsmap(datamap)
+            Ncount = np.sum(datamap, axis=1)
+            Ebinmax = np.min([np.where(Ncount != 0)[0][-1]+1, 5])
+            TS_array[i] = (self.minimize__lnL(w_data, Ncount, lmin, 0, Ebinmax))[-1]
+        if writeData:
+            np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,'TS_'+str(f_diff)+'_'+galaxyName+'.txt'), TS_array)
+        return TS_array
 
 
     def log_prior(self, f):

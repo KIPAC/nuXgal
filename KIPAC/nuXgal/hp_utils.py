@@ -616,7 +616,7 @@ def get_alm_idxs_for_m(m, max_l):
     ----------
     m : `int`
         The value of m we want
-    max_l : `int` 
+    max_l : `int`
         The maximum value of l
 
     Returns
@@ -636,7 +636,7 @@ def get_alm_idxs_for_l(l, max_l):
     ----------
     l : `int`
         The value of l we want
-    max_l : `int` 
+    max_l : `int`
         The maximum value of l
 
     Returns
@@ -656,7 +656,7 @@ def alm_for_m(alms, m, max_l):
         The input alms
     m : `int`
         The value of m we want
-    max_l : `int` 
+    max_l : `int`
         The maximum value of l
 
     Returns
@@ -679,7 +679,7 @@ def alm_for_l(alms, l, max_l):
         The input alms
     l : `int`
         The value of m we want
-    max_l : `int` 
+    max_l : `int`
         The maximum value of l
 
     Returns

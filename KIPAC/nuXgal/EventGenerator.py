@@ -148,39 +148,29 @@ class EventGenerator():
 
 
 
-    def computeSyntheticData(self, N_yr, fromGalaxy, f_diff=1., write_map=False):
+    def computeSyntheticData(self, N_yr, f_diff=1., density_nu=None, write_map=False):
         """ f_diff = 1 means injecting astro events that sum up to 100% of diffuse muon neutrino flux """
-        f_astro = np.zeros(Defaults.NEbin)
-        f_atm = np.zeros(Defaults.NEbin)
-        for i in range(Defaults.NEbin):
-            if self.nevts[i] != 0.:
-                f_astro[i] = self.Nastro_1yr_Aeffmax[i] * f_diff / self.nevts[i]
-                f_atm[i] = 1. - f_astro[i]
-            elif self.Nastro_1yr_Aeffmax[i] != 0.:
-                f_astro[i] = 1.
-            else:
-                continue
-
-        # generate atmospheric eventmaps
-        Natm = np.random.poisson(self.nevts * N_yr * f_atm)
-        self._atm_gen.nevents_expected.set_value(Natm, clear_parent=False)
-        atm_map = self._atm_gen.generate_event_maps(1)[0]
-
-        # generate astro maps
-        gs = GalaxySample()
-        if fromGalaxy:
-            density_nu = gs.analy_density
-            print (density_nu.where(density_nu < 0.))
+        if f_diff == 0.:
+            Natm = np.random.poisson(self.nevts * N_yr)
+            self._atm_gen.nevents_expected.set_value(Natm, clear_parent=False)
+            countsmap = self._atm_gen.generate_event_maps(1)[0]
 
         else:
-            density_nu = hp.sphtfunc.synfast(gs.analyCL, Defaults.NSIDE, verbose=False)
-            density_nu = np.exp(density_nu)
-            density_nu /= density_nu.sum()
 
-        Nastro = np.random.poisson(self.Nastro_1yr_Aeffmax * N_yr * f_diff)
-        astro_map = self.astroEvent_galaxy(Nastro, density_nu)
+            f_atm = np.zeros(Defaults.NEbin)
+            for i in range(Defaults.NEbin):
+                if self.nevts[i] != 0.:
+                    f_atm[i] = 1. - self.Nastro_1yr_Aeffmax[i] * f_diff / self.nevts[i]
+            # generate atmospheric eventmaps
+            Natm = np.random.poisson(self.nevts * N_yr )#* f_atm)
+            self._atm_gen.nevents_expected.set_value(Natm, clear_parent=False)
+            atm_map = self._atm_gen.generate_event_maps(1)[0]
 
-        countsmap = atm_map + astro_map
+            # generate astro maps
+            Nastro = np.random.poisson(self.Nastro_1yr_Aeffmax * N_yr * f_diff)
+            astro_map = self.astroEvent_galaxy(Nastro, density_nu)
+
+            countsmap = atm_map + astro_map
 
         if write_map:
             basekey = 'syntheticData'

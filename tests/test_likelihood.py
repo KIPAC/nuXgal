@@ -24,14 +24,15 @@ from KIPAC.nuXgal.hp_utils import vector_apply_mask
 
 from KIPAC.nuXgal.plot_utils import FigureDict
 
+from KIPAC.nuXgal.GalaxySample import GalaxySample
+
 from Utils import MAKE_TEST_PLOTS
 
 
 testfigpath = os.path.join(Defaults.NUXGAL_PLOT_DIR, 'test')
 N_yr = 3
 
-llh = Likelihood(N_yr=N_yr)#, computeATM=True, computeASTRO =True, N_re=10)
-
+llh = Likelihood(N_yr=N_yr)#, computeATM=True, computeASTRO =True, galaxyName='WISE', N_re=100)
 
 
 
@@ -48,8 +49,8 @@ def showDataModel(datamap, energyBin):
         axes.set_ylim(-3e-4, 3e-4)
         axes.set_xlim(0, 400)
 
-        axes.plot(llh.cf.l, llh.cf.cl_galaxy * 0.6 ** 0.5, 'r')
-        axes.errorbar(llh.cf.l_cl,  w_data[energyBin], yerr=llh.w_atm_std[0] * (llh.Ncount_atm[0] / np.sum(datamap[energyBin]))**0.5, markersize=4, color='grey', fmt='s', capthick=2)
+        axes.plot(Defaults.ell, llh.gs.analyCL[0:Defaults.NCL] * 0.6 ** 0.5, 'r')
+        axes.errorbar(Defaults.ell,  w_data[energyBin], yerr=llh.w_atm_std[0] * (llh.Ncount_atm[0] / np.sum(datamap[energyBin]))**0.5, markersize=4, color='grey', fmt='s', capthick=2)
 
         figs.save_all(testfigpath, 'pdf')
 
@@ -75,90 +76,39 @@ def test_STDdependence(energyBin, energyBin2):
     fig = o_dict['fig']
     axes = o_dict['axes']
     axes.set_yscale('log')
-    axes.set_ylim(1e-6, 1e-2)
+    #axes.set_ylim(1e-6, 1e-2)
+    axes.set_ylim(1e-6, 1e-4)
 
-    axes.plot(llh.cf.l_cl, llh.w_astro_std[energyBin], label='actual')
-    axes.plot(llh.cf.l_cl, llh.w_atm_std[energyBin2] * (llh.Ncount_atm[energyBin2] / llh.Ncount_astro[energyBin])**0.5, label='est')
-    #print (llh.Ncount_astro)
+    w_atm_std_file = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'w_atm_std.txt'))
+    w_atm_std_file2 = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, '10yr/w_atm_std.txt'))
+    axes.plot(Defaults.ell, w_atm_std_file[0], label='new')
+    axes.plot(Defaults.ell, w_atm_std_file2[0], label='old')
 
-    #axes.plot(llh.cf.l_cl, llh.w_atm_std[energyBin], label='atm')
-    #axes.plot(llh.cf.l_cl, llh.w_atm_std[energyBin2] * (llh.Ncount_atm[energyBin2] / llh.Ncount_atm[energyBin])**0.5, label='atm2')
-
+    #axes.plot(Defaults.ell, llh.w_astro_std[energyBin], label='actual')
+    #axes.plot(Defaults.ell, llh.w_atm_std[energyBin2] * (llh.Ncount_atm[energyBin2] / llh.Ncount_astro[energyBin])**0.5, label='est')
 
     fig.legend()
     figs.save_all(testfigpath, 'pdf')
 
 
-def getEbinmax():
-    Ebinmax = 3
-    N_nonzero = 1
-    while (N_nonzero > 0) & (Ebinmax < Defaults.NEbin - 1) :
-        Ebinmax += 1
-        N_nonzero = len(np.where(llh.w_astro_std_square[Ebinmax] > 0)[0])
-
-    print (Ebinmax, N_nonzero)
-    return Ebinmax
-
-def TS_test_Gal(N_re = 200, lmin = 20):
-    TS_array = np.zeros(N_re)
-    for i in range(N_re):
-        if i % 10 == 0:
-            print (i)
-        datamap = generateData(1.0, 0.6, N_yr, fromGalaxy=True, seed=103 + i * 7)
-        datamap = vector_apply_mask(datamap, Defaults.mask_muon, copy=False)
-        w_data = llh.cf.crossCorrelationFromCountsmap(datamap)
-        Ncount = np.sum(datamap, axis=1)
-        Ebinmax = np.min([np.where(Ncount != 0)[0][-1]+1, 5])
-        TS_array[i] = (llh.minimize__lnL(w_data, Ncount, lmin, 0, Ebinmax))[-1]
-
-    print (TS_array)
-    np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,'TS_Gal.txt'), TS_array)
-
-def TS_test_atm(N_re = 200, lmin = 20):
-    TS_array = np.zeros(N_re)
-    for i in range(N_re):
-        if i % 10 == 0:
-            print (i)
-        datamap = generateData(0.0, 0.6, N_yr, fromGalaxy=False, seed=109 + i * 7)
-        datamap = vector_apply_mask(datamap, Defaults.mask_muon, copy=False)
-        w_data = llh.cf.crossCorrelationFromCountsmap(datamap)
-        Ncount = np.sum(datamap, axis=1)
-        Ebinmax = np.min([np.where(Ncount != 0)[0][-1]+1, 5])
-        TS_array[i] = (llh.minimize__lnL(w_data, Ncount, lmin, 0, Ebinmax))[-1]
-
-    print (TS_array)
-    np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,'TS_atm.txt'), TS_array)
-
-def TS_test_nonGal(N_re = 200, lmin = 20):
-    TS_array = np.zeros(N_re)
-    for i in range(N_re):
-        if i % 10 == 0:
-            print (i)
-        datamap = generateData(1.0, 0.6, N_yr, fromGalaxy=False, seed=103 + i * 7)
-        datamap = vector_apply_mask(datamap, Defaults.mask_muon, copy=False)
-        w_data = llh.cf.crossCorrelationFromCountsmap(datamap)
-        Ncount = np.sum(datamap, axis=1)
-        Ebinmax = np.min([np.where(Ncount != 0)[0][-1]+1, 5])
-        TS_array[i] = (llh.minimize__lnL(w_data, Ncount, lmin, 0, Ebinmax))[-1]
-
-    print (TS_array)
-    np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,'TS_nonGal.txt'), TS_array)
 
 
 def test_TS_distribution(readfile = True):
+    lmin = 20
+    N_re = 200
     if not readfile:
-        TS_test_atm()
-        TS_test_nonGal()
-        TS_test_Gal()
+        llh.TS_distribution(N_re, N_yr, lmin, 0, 'analy')
+        llh.TS_distribution(N_re, N_yr, lmin, 1, 'WISE')
+        #llh.TS_distribution(N_re, N_yr, lmin, 1, 'nonGal')
 
-    TS_atm = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,'TS_atm.txt'))
-    TS_nonGal = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,'TS_nonGal.txt'))
-    TS_Gal = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,'TS_Gal.txt'))
+    TS_atm = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,'TS_0_analy.txt'))
+    #TS_nonGal = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,'TS_1_nonGal.txt'))
+    TS_Gal = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,'TS_1_WISE.txt'))
 
     TS_bins = np.linspace(0, 100, 101)
     TS_bins_c = (TS_bins[0:-1] + TS_bins[1:]) / 2.
     p_atm, _ = np.histogram(TS_atm, TS_bins, density=True)
-    p_nonGal, _ = np.histogram(TS_nonGal, TS_bins, density=True)
+    #p_nonGal, _ = np.histogram(TS_nonGal, TS_bins, density=True)
     p_Gal, _ = np.histogram(TS_Gal, TS_bins, density=True)
 
 
@@ -168,8 +118,9 @@ def test_TS_distribution(readfile = True):
     axes = o_dict['axes']
     axes.set_xlim(-5, 40)
 
-    axes.plot(TS_bins_c, 1 - np.cumsum(p_atm), lw=2, label='atm')
-    axes.plot(TS_bins_c, 1 - np.cumsum(p_nonGal), lw=2, label='nonGal')
+    axes.plot(TS_bins_c, np.cumsum(p_atm), lw=2, label='atm')
+    #axes.plot(TS_bins_c, 1 - np.cumsum(p_atm), lw=2, label='atm')
+    #axes.plot(TS_bins_c, 1 - np.cumsum(p_nonGal), lw=2, label='nonGal')
     axes.plot(TS_bins_c, np.cumsum(p_Gal), lw=3, label='Gal')
 
     fig.legend()
@@ -178,9 +129,7 @@ def test_TS_distribution(readfile = True):
 
 
 
-def testMCMC():
-    datamap = llh.eg.computeSyntheticData(N_yr, fromGalaxy=False)
-    datamap = vector_apply_mask(datamap, Defaults.mask_muon, copy=False)
+def testMCMC(datamap):
     w_data = llh.cf.crossCorrelationFromCountsmap(datamap)
     Ncount = np.sum(datamap, axis=1)
     Ebinmax = np.min([np.where(Ncount != 0)[0][-1]+1, 5])
@@ -202,10 +151,11 @@ def testMCMC():
 if __name__ == '__main__':
 
 
-    #test_STDdependence(2, 0)
-    testMCMC()
+    #datamap = llh.eg.computeSyntheticData(N_yr, fromGalaxy=False)
+    #datamap = vector_apply_mask(datamap, Defaults.mask_muon, copy=False)
 
-    #lmin = 20
-    #energyBin = 3
-    #showDataModel(datamap, energyBin)
-    #plotLnL(w_data, Ncount, lmin, energyBin)
+    #test_STDdependence(4, 3)
+    #testMCMC(datamap)
+    #showDataModel(datamap, energyBin=3)
+
+    test_TS_distribution()#False)
