@@ -148,7 +148,7 @@ class EventGenerator():
 
 
 
-    def computeSyntheticData(self, N_yr, f_diff=1., density_nu=None, write_map=False):
+    def SyntheticData(self, N_yr, f_diff=1., density_nu=None, write_map=False):
         """ f_diff = 1 means injecting astro events that sum up to 100% of diffuse muon neutrino flux """
         if f_diff == 0.:
             Natm = np.random.poisson(self.nevts * N_yr)

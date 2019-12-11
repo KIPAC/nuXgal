@@ -26,6 +26,7 @@ class GalaxySample():
         self.WISE_galaxymap_overdensity_cl = hp.anafast(self.WISE_galaxymap_overdensity)
         self.WISE_density = self.WISE_galaxymap / np.sum(self.WISE_galaxymap)
 
+
         # simulated galaxy sample based on analytical power spectrum
         analyCLpath = os.path.join(Defaults.NUXGAL_ANCIL_DIR, 'Cl_ggRM.dat')
         self.analyCL = np.loadtxt(analyCLpath)
@@ -60,6 +61,7 @@ class GalaxySample():
             analy_galaxymap_path = os.path.join(Defaults.NUXGAL_ANCIL_DIR, 'analy_galaxymap.fits')
             hp.fitsfunc.write_map(analy_galaxymap_path, self.analy_galaxymap, overwrite=True)
 
+
         np.random.seed(Defaults.randomseed_galaxy)
         density_g = hp.sphtfunc.synfast(self.analyCL * 0.6, Defaults.NSIDE)
         density_g = np.exp(density_g)
@@ -74,6 +76,7 @@ class GalaxySample():
 
 
     def getOverdensity(self, key):
+
         if key == 'analy':
             return self.analy_galaxymap_overdensity
         if key == 'WISE':
@@ -92,6 +95,7 @@ class GalaxySample():
 
 
     def getDensity(self, key):
+
         if key == 'analy':
             return self.analy_density
         if key == 'WISE':
