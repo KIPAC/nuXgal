@@ -471,8 +471,8 @@ def cross_correlate_alms_normed(alms1, alms2, **kwargs):
         Cross correleation power spectra
     """
     cross = hp.sphtfunc.alm2cl(alms1, alms2, **kwargs)
-    cl_1  = hp.sphtfunc.alm2cl(alms1, **kwargs)
-    cl_2  = hp.sphtfunc.alm2cl(alms2, **kwargs)
+    cl_1 = hp.sphtfunc.alm2cl(alms1, **kwargs)
+    cl_2 = hp.sphtfunc.alm2cl(alms2, **kwargs)
     return cross / np.sqrt(cl_1 * cl_2)
 
 

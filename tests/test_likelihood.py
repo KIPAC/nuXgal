@@ -26,7 +26,11 @@ from KIPAC.nuXgal.plot_utils import FigureDict
 
 from KIPAC.nuXgal.GalaxySample import GalaxySample
 
-from Utils import MAKE_TEST_PLOTS
+try:
+    from Utils import MAKE_TEST_PLOTS
+except ImportError:
+    from .Utils import MAKE_TEST_PLOTS
+
 
 from scipy import stats
 
@@ -36,7 +40,8 @@ N_yr = 3
 llh = Likelihood(N_yr=N_yr, computeATM=True, computeASTRO =True, galaxyName='analy', N_re=100)
 #llh = Likelihood(N_yr=N_yr, computeATM=False, computeASTRO =False, galaxyName='analy', N_re=100)
 
-
+datamap = llh.eg.SyntheticData(N_yr, f_diff=0., density_nu = llh.gs.getDensity('WISE'))
+datamap = vector_apply_mask(datamap, Defaults.mask_muon, copy=False)
 
 
 def showDataModel(datamap, energyBin):
@@ -72,7 +77,7 @@ def plotLnL(w_data, Ncount, lmin, energyBin):
     figs.save_all(testfigpath, 'pdf')
 
 
-def test_STDdependence(energyBin, energyBin2):
+def test_STDdependence(energyBin=2, energyBin2=0):
     figs = FigureDict()
     o_dict = figs.setup_figure('compare_std', xlabel='$l$', ylabel='$C_l$', figsize=(8, 6))
     fig = o_dict['fig']
@@ -99,7 +104,7 @@ def test_STDdependence(energyBin, energyBin2):
 
 
 
-def test_TS_distribution(readfile = True):
+def test_TS_distribution(readfile = False):
     lmin = 50
     N_re = 200
     if not readfile:
@@ -138,7 +143,7 @@ def test_TS_distribution(readfile = True):
 
 
 
-def testMCMC(datamap):
+def testMCMC(datamap=datamap):
     w_data = llh.cf.crossCorrelationFromCountsmap(datamap)
     Ncount = np.sum(datamap, axis=1)
     Ebinmax = np.min([np.where(Ncount != 0)[0][-1]+1, 5])

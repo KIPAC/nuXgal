@@ -5,8 +5,6 @@ import numpy as np
 
 import healpy as hp
 
-from .EventGenerator import EventGenerator
-
 from . import Defaults
 
 from . import file_utils
@@ -27,6 +25,7 @@ class Analyze():
 
 
     def getIntensity(self, countsmap, dt_days=Defaults.DT_DAYS):
+        """Convert a countsmap to total intensity using the exposure map"""
         intensitymap = np.divide(countsmap, self.exposuremap,
                                  out=np.zeros_like(countsmap), where=self.exposuremap != 0)
         intensity = np.zeros(Defaults.NEbin)
@@ -45,14 +44,17 @@ class Analyze():
 
 
     def powerSpectrum(self, intensitymap):
+        """Build a power spectrum from an intensity map"""
         overdensitymap = hp_utils.vector_overdensity_from_intensity(intensitymap)
         return hp_utils.vector_cl_from_overdensity(overdensitymap, Defaults.NCL)
 
     def powerSpectrumFromCountsmap(self, countsmap):
+        """Build a power spectrum from a counts map"""
         intensitymap = hp_utils.vector_intensity_from_counts_and_exposure(countsmap, self.exposuremap)
         return self.powerSpectrum(intensitymap)
 
     def crossCorrelationFromCountsmap(self, countsmap):
+        """Comput the cross correlation between the overdensity map and a counts map"""
         intensitymap = hp_utils.vector_intensity_from_counts_and_exposure(countsmap, self.exposuremap)
         overdensitymap = hp_utils.vector_overdensity_from_intensity(intensitymap)
         odmap_2d = hp_utils.reshape_array_to_2d(self.overdensityMap_g)

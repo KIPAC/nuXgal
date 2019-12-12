@@ -1,8 +1,13 @@
+"""Contains GalaxySample class to organize galaxy samples for cross correlation"""
+
+
 import os
 
 import numpy as np
 
 import healpy as hp
+
+import matplotlib.pyplot as plt
 
 from . import Defaults
 
@@ -10,17 +15,22 @@ from . import Utilityfunc
 
 from . import FigureDict
 
-import matplotlib.pyplot as plt
 
 
 class GalaxySample():
     """Class to organize galaxy samples for cross correlation
     """
-    def __init__(self, computeGalaxy = False):
+    def __init__(self, computeGalaxy=False):
+        """C'tor
 
+        Parameters
+        ----------
+        computeGalaxy : `bool`
+            if True generate the galaxy sample from the analytical power spectrum
+        """
 
         # WISE-2MASS galaxy sample map based on ~5M galaixes
-        galaxymap_path = os.path.join(Defaults.NUXGAL_ANCIL_DIR,'WISE_galaxymap.fits')
+        galaxymap_path = os.path.join(Defaults.NUXGAL_ANCIL_DIR, 'WISE_galaxymap.fits')
         self.WISE_galaxymap = hp.fitsfunc.read_map(galaxymap_path, verbose=False)
         self.WISE_galaxymap_overdensity = Utilityfunc.overdensityMap(self.WISE_galaxymap)
         self.WISE_galaxymap_overdensity_cl = hp.anafast(self.WISE_galaxymap_overdensity)
@@ -50,7 +60,17 @@ class GalaxySample():
         self.nonGal_density = density_nonGal / density_nonGal.sum()
 
 
-    def generateGalaxy(self, N_g = 2000000, write_map = True):
+    def generateGalaxy(self, N_g=2000000, write_map=True):
+        """Generate a synthetic galaxy sample
+
+        Parameters
+        ----------
+        N_g : `int`
+            Number of galaxies to generate
+        write_map: `bool`
+            if True write the generate map to the ancilary data area
+        """
+
         np.random.seed(Defaults.randomseed_galaxy)
         density_g = hp.sphtfunc.synfast(self.analyCL, Defaults.NSIDE)
         density_g = np.exp(density_g)
@@ -76,26 +96,47 @@ class GalaxySample():
 
 
     def getOverdensity(self, key):
+        """Get the overdensity map for a particular sample
+
+        Parameters
+        ----------
+        key : `str`
+            Name of the sample to get the overdensity for
+        """
 
         if key == 'analy':
             return self.analy_galaxymap_overdensity
         if key == 'WISE':
             return self.WISE_galaxymap_overdensity
 
-        print ('please use one of the following keywords: WISE, analy')
+        print('please use one of the following keywords: WISE, analy')
+        return None
 
 
     def getCL(self, key):
+        """Get the power spectrum particular sample
+
+        Parameters
+        ----------
+        key : `str`
+            Name of the sample to get the power spectrum for
+        """
         if key == 'analy':
             return self.analyCL[0:Defaults.NCL]
-        elif key == 'WISE':
+        if key == 'WISE':
             return self.WISE_galaxymap_overdensity_cl
-        else:
-            print ('please use one of the following keywords: WISE, analy')
+        print('please use one of the following keywords: WISE, analy')
+        return None
 
 
     def getDensity(self, key):
+        """Get the density map for a particular sample
 
+        Parameters
+        ----------
+        key : `str`
+            Name of the sample to get the density map for
+        """
         if key == 'analy':
             return self.analy_density
         if key == 'WISE':
@@ -103,19 +144,28 @@ class GalaxySample():
         if key == 'nonGal':
             return self.nonGal_density
 
-        print ('please use one of the following keywords: WISE, analy, nonGal')
-
+        print('please use one of the following keywords: WISE, analy, nonGal')
+        return None
 
 
     def plotGalaxymap(self, keyword, plotmax=100):
+        """Plot galaxy counts map for a particular sample
+
+        Parameters
+        ----------
+        key : `str`
+            Name of the sample to plot the map for
+        plotmax : `float`
+            Maximum value in the plot
+        """
         if keyword == 'WISE':
             galaxymap = self.WISE_galaxymap
         elif keyword == 'analy':
             galaxymap = self.analy_galaxymap_overdensity
         else:
-            print ('please use one of the following keywords: WISE, analy')
+            print('please use one of the following keywords: WISE, analy')
+            return
 
-        figs = FigureDict()
         hp.mollview(galaxymap, title=keyword, max=plotmax)
         testfigpath = os.path.join(Defaults.NUXGAL_PLOT_DIR, 'test_')
         plt.savefig(testfigpath+keyword+'_galaxy.pdf')
@@ -123,8 +173,15 @@ class GalaxySample():
 
 
     def plotCL(self):
+        """Plot the power spectrum for a particular sample
+
+        Parameters
+        ----------
+        key : `str`
+            Name of the sample to plot the power spectrum for
+        """
         figs = FigureDict()
-        o_dict = figs.setup_figure('galaxyCL', xlabel='$\ell$', ylabel='$C_{\ell}$', figsize=(8, 6))
+        o_dict = figs.setup_figure('galaxyCL', xlabel=r'$\ell$', ylabel=r'$C_{\ell}$', figsize=(8, 6))
         fig, axes = o_dict['fig'], o_dict['axes']
         axes.set_xscale('log')
         axes.set_yscale('log')

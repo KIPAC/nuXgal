@@ -24,7 +24,10 @@ from KIPAC.nuXgal import Utilityfunc
 
 from KIPAC.nuXgal.GalaxySample import GalaxySample
 
-from Utils import MAKE_TEST_PLOTS
+try:
+    from Utils import MAKE_TEST_PLOTS
+except ImportError:
+    from .Utils import MAKE_TEST_PLOTS
 
 astropath = os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'eventmap_astro{i}.fits')
 bgpath = os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'eventmap_atm{i}.fits')

@@ -18,5 +18,3 @@ from .Analyze import Analyze
 from .Likelihood import Likelihood
 
 from .Map import Map
-
-
