@@ -33,9 +33,8 @@ from scipy import stats
 testfigpath = os.path.join(Defaults.NUXGAL_PLOT_DIR, 'test')
 N_yr = 3
 
-llh = Likelihood(N_yr=N_yr, computeATM=True, computeASTRO =True, galaxyName='analy', N_re=100)
+llh = Likelihood(N_yr=N_yr, computeATM=False, computeASTRO =False, galaxyName='WISE', N_re=100)
 #llh = Likelihood(N_yr=N_yr, computeATM=False, computeASTRO =False, galaxyName='analy', N_re=100)
-
 
 
 
@@ -85,13 +84,17 @@ def test_STDdependence(energyBin, energyBin2):
     #axes.plot(Defaults.ell, w_atm_std_file[0], label='new')
     #axes.plot(Defaults.ell, w_atm_std_file2[0], label='old')
 
-    axes.plot(Defaults.ell, llh.w_astro_std[energyBin], label='actual')
-    axes.plot(Defaults.ell, llh.w_atm_std[energyBin2] * (llh.Ncount_atm[energyBin2] / llh.Ncount_astro[energyBin])**0.5, label='est')
+    #axes.plot(Defaults.ell, llh.w_astro_std[energyBin], label='actual')
+    #axes.plot(Defaults.ell, llh.w_atm_std[energyBin2] * (llh.Ncount_atm[energyBin2] / llh.Ncount_astro[energyBin])**0.5, label='est')
 
-    axes.plot(Defaults.ell, np.abs(llh.w_astro_mean[energyBin]), label='astro mean')
-    axes.plot(Defaults.ell, np.abs(llh.w_atm_mean[energyBin]), label='atm mean')
-    axes.plot(Defaults.ell, llh.gs.analyCL[0:Defaults.NCL] / 0.3, label='analy')
-    axes.plot(Defaults.ell, llh.gs.WISE_galaxymap_overdensity_cl, label='WISE cl')
+    #axes.plot(Defaults.ell, np.abs(llh.w_astro_mean[energyBin]), label='astro mean')
+    #axes.plot(Defaults.ell, np.abs(llh.w_atm_mean[energyBin]), label='atm mean')
+    #axes.plot(Defaults.ell, llh.gs.analyCL[0:Defaults.NCL] / 0.3, label='analy')
+    #axes.plot(Defaults.ell, llh.gs.WISE_galaxymap_overdensity_cl, label='WISE cl')
+
+    axes.plot(Defaults.ell, llh.w_atm_std[energyBin], label='std of cross correlation with atmospheric bg')
+    axes.plot(Defaults.ell, llh.w_atm_std[energyBin] * (2 * Defaults.ell + 1), label=r'std, scaled by $(2\,\ell + 1)$')
+    axes.plot(Defaults.ell, llh.gs.getCL('flatCL'), label='galaxy cl')
 
     fig.legend()
     figs.save_all(testfigpath, 'pdf')
@@ -103,13 +106,13 @@ def test_TS_distribution(readfile = True):
     lmin = 50
     N_re = 200
     if not readfile:
-        llh.TS_distribution(N_re, N_yr, lmin, f_diff=0, galaxyName='analy')
-        llh.TS_distribution(N_re, N_yr, lmin, f_diff=1, galaxyName='analy')
+        llh.TS_distribution(N_re, N_yr, lmin, f_diff=0, galaxyName='WISE')
+        llh.TS_distribution(N_re, N_yr, lmin, f_diff=1, galaxyName='WISE')
         #llh.TS_distribution(N_re, N_yr, lmin, 1, 'nonGal')
 
-    TS_atm = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,'TS_0_analy.txt'))
+    TS_atm = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,'TS_0_WISE.txt'))
     #TS_nonGal = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,'TS_1_nonGal.txt'))
-    TS_Gal = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,'TS_1_analy.txt'))
+    TS_Gal = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,'TS_1_WISE.txt'))
 
     TS_bins = np.linspace(0, 100, 101)
     TS_bins_c = (TS_bins[0:-1] + TS_bins[1:]) / 2.
