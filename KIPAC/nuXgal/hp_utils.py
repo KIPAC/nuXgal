@@ -608,6 +608,35 @@ def vector_apply_mask(maps, mask, copy=True):
     return maps_2d.reshape(orig_shape)
 
 
+def vector_apply_mask_hp(maps, mask, copy=True):
+    """Apply a healpy mask to a set of maps
+
+    Parameters
+    ----------
+    maps : `np.ndarray`
+        The input maps
+    mask : `np.ndarray`
+        The mask
+    copy : `bool`
+        Returns a copy
+
+    Returns
+    -------
+    out_maps : `np.ndarray`
+        The masked arrays
+    """
+    orig_shape = maps.shape
+    if copy:
+        maps_2d = reshape_array_to_2d(maps.copy())
+    else:
+        maps_2d = reshape_array_to_2d(maps)
+
+    for maps_1d in maps_2d:
+        maps_1d = maps_1d + mask 
+
+    return maps_2d.reshape(orig_shape)
+
+
 
 def get_alm_idxs_for_m(m, max_l):
     """Extract the indices for a partiuclar m

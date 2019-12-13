@@ -51,4 +51,4 @@ ell = np.arange(NSIDE * 3)
 
 # southern sky mask
 exposuremap_theta, exposuremap_phi = hp.pixelfunc.pix2ang(NSIDE, np.arange(NPIXEL))
-mask_muon = np.where(exposuremap_theta > 85. / 180 * np.pi)
+idx_muon = np.where(exposuremap_theta > np.radians(85.) )
