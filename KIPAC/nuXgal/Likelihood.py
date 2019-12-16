@@ -2,6 +2,7 @@
 
 import os
 import numpy as np
+import healpy as hp
 import emcee
 import corner
 import matplotlib.pyplot as plt
@@ -98,7 +99,7 @@ class Likelihood():
 
     def get_w_mean(self):
         overdensity = self.gs.getOverdensity(self.galaxyName)
-        w_mean = hp.anafast(hp_utils.vector_apply_mask_hp(overdensity, self.hpMask))
+        w_mean = hp.anafast(vector_apply_mask_hp(overdensity, self.hpMask))
 
         self.w_model_f1 = np.zeros((Defaults.NEbin, Defaults.NCL))
         for i in range(Defaults.NEbin):

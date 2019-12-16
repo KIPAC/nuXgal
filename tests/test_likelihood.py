@@ -37,11 +37,11 @@ from scipy import stats
 testfigpath = os.path.join(Defaults.NUXGAL_PLOT_DIR, 'test')
 N_yr = 3
 
-llh = Likelihood(N_yr=N_yr, computeATM=False, computeASTRO =False, galaxyName='WISE', N_re=100)
-#llh = Likelihood(N_yr=N_yr, computeATM=False, computeASTRO =False, galaxyName='analy', N_re=100)
+#llh = Likelihood(N_yr=N_yr, computeATM=True, computeASTRO=True, galaxyName='WISE', N_re=100)
+llh = Likelihood(N_yr=N_yr, computeATM=False, computeASTRO=False, galaxyName='WISE', N_re=100)
 
 datamap = llh.eg.SyntheticData(N_yr, f_diff=0., density_nu = llh.gs.getDensity('WISE'))
-datamap = vector_apply_mask(datamap, Defaults.mask_muon, copy=False)
+datamap = vector_apply_mask(datamap, Defaults.idx_muon, copy=False)
 
 def showDataModel(datamap, energyBin):
     datamap = vector_apply_mask(datamap, Defaults.mask_muon, copy=False)
