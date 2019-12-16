@@ -13,6 +13,7 @@ from . import file_utils
 
 from . import hp_utils
 
+from . import Utilityfunc
 
 aeffpath = os.path.join(Defaults.NUXGAL_IRF_DIR, 'Aeff{i}.fits')
 
@@ -20,10 +21,9 @@ class Analyze():
     """Analysis class"""
 
 
-    def __init__(self, overdensityMap_g):
+    def __init__(self):
         """C'tor"""
         self.exposuremap = file_utils.read_maps_from_fits(aeffpath, Defaults.NEbin)
-        self.overdensityMap_g = overdensityMap_g
 
 
     def getIntensity(self, countsmap, dt_days=Defaults.DT_DAYS):
@@ -35,14 +35,6 @@ class Analyze():
         return intensity
 
 
-    def getIntensity_mask(self, countsmap, mask):
-        intensitymap = np.divide(countsmap, self.exposuremap,
-                                 out=np.zeros_like(countsmap), where=self.exposuremap != 0)
-
-        maskmap = hp.pixelfunc.ma(mask)
-        intensitymap = intensitymap + maskmap
-        return intensitymap
-
 
     def powerSpectrum(self, intensitymap):
         overdensitymap = hp_utils.vector_overdensity_from_intensity(intensitymap)
@@ -52,12 +44,18 @@ class Analyze():
         intensitymap = hp_utils.vector_intensity_from_counts_and_exposure(countsmap, self.exposuremap)
         return self.powerSpectrum(intensitymap)
 
-    def crossCorrelationFromCountsmap(self, countsmap):
+    def crossCorrelationFromCountsmap(self, countsmap, overdensityMap_g):
         intensitymap = hp_utils.vector_intensity_from_counts_and_exposure(countsmap, self.exposuremap)
         overdensitymap = hp_utils.vector_overdensity_from_intensity(intensitymap)
-        odmap_2d = hp_utils.reshape_array_to_2d(self.overdensityMap_g)
+        odmap_2d = hp_utils.reshape_array_to_2d(overdensityMap_g)
         return hp_utils.vector_cross_correlate_maps(overdensitymap, odmap_2d, Defaults.NCL)
-        #w_cross = np.zeros((Defaults.NEbin, Defaults.NCL))
-        #for i in range(Defaults.NEbin):
-        #    w_cross[i] = hp.sphtfunc.anafast(overdensitymap[i], self.overdensityMap_g)
-        #return w_cross
+
+
+    def crossCorrelationFromCountsmap_mask(self, countsmap, overdensityMap_g, idx_mask):
+        intensitymap = hp_utils.vector_intensity_from_counts_and_exposure(countsmap, self.exposuremap)
+        w_cross = np.zeros((Defaults.NEbin, Defaults.NCL))
+        for i in range(Defaults.NEbin):
+            overdensitymap_nu = Utilityfunc.overdensityMap_mask (countsmap[i], idx_mask)
+            overdensitymap_nu[idx_mask] = hp.UNSEEN
+            w_cross[i] = hp.sphtfunc.anafast(overdensitymap_nu, overdensityMap_g)
+        return w_cross
