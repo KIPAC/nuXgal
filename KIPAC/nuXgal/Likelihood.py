@@ -19,31 +19,31 @@ from .hp_utils import vector_apply_mask_hp, vector_apply_mask
 
 class Likelihood():
     """Class to evaluate the likelihood for a particular model of neutrino galaxy correlation"""
-    def __init__(self, N_yr, computeATM, computeASTRO, galaxyName, N_re=40):
+    def __init__(self, N_yr, galaxyName, computeSTD, N_re=40):
         """C'tor
 
         Parameters
         ----------
         N_yr : `float`
             Number of years to simulate if computing the models
-        computeATM : `bool`
-            If true, compute the atmosphere correlation model
-        computeASTRO : `bool`
-            If true, compute the astrophysical correlation model
         galaxyName : `str`
             Name of the Galaxy sample
+        computeSTD : `bool`
+            If true, compute the standard deviation for a number of trials
         N_re : `int`
            Number of realizations to use to compute the models
         """
         self.eg = EventGenerator()
-        self.gs = GalaxySample()
-        self.galaxyName = galaxyName
-        self.cf = Analyze(self.gs.getOverdensity(galaxyName))
+        self.gs = GalaxySample(galaxyName)
+        self.cf = Analyze()
         self.anafastMask()
+
+        # scaled mean and std
+        self.calculate_w_mean()
 
 
         # compute or load w_atm distribution
-        if computeATM:
+        if computeSTD:
             self.computeAtmophericEventDistribution(N_yr, N_re, True)
         else:
             w_atm_mean_file = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,
@@ -56,56 +56,29 @@ class Likelihood():
             self.Ncount_atm = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,
                                                       'Ncount_atm_after_masking.txt'))
 
-        """
-        #compute or load w_astro distribution
-        if computeASTRO:
-            self.computeAstrophysicalEventDistribution(N_yr, N_re, True)
-        else:
-            w_astro_mean_file = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,
-                                                        'w_astro_mean.txt'))
-            self.w_astro_mean = w_astro_mean_file.reshape((Defaults.NEbin, Defaults.NCL))
-            w_astro_std_file = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,
-                                                       'w_astro_std.txt'))
-            self.w_astro_std = w_astro_std_file.reshape((Defaults.NEbin, Defaults.NCL))
-            self.w_astro_std_square = self.w_astro_std ** 2
-            self.Ncount_astro = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'Ncount_astro_after_masking.txt'))
-        """
-
-        # scaled mean and std
-        self.get_w_mean()
-
         self.w_std_square0 = np.zeros((Defaults.NEbin, Defaults.NCL))
         for i in range(3):
             self.w_std_square0[i] = self.w_atm_std_square[0] * self.Ncount_atm[0]
         for i in [3, 4]:
             self.w_std_square0[i] = self.w_atm_std_square[3] * self.Ncount_atm[3]
 
-
     def anafastMask(self):
 
-        hpMask = hp.pixelfunc.ma(np.ones(Defaults.NPIXEL))
-
+        """ mask Southern sky to avoid muons """
         mask_nu = np.zeros(Defaults.NPIXEL, dtype=np.bool)
         mask_nu[Defaults.idx_muon] = 1.
-
-        if self.gs.getMask(self.galaxyName).any() != None:
-            hpMask.mask = mask_nu + self.gs.getMask(self.galaxyName)
-
-        else:
-            hpMask.mask = mask_nu
-
-        self.hpMask = hpMask
+        """ add the mask of galaxy sample """
+        mask_nu[self.gs.idx_galaxymask] = 1.
+        self.idx_mask = np.where(mask_nu != 0)
 
 
-    def get_w_mean(self):
-        overdensity = self.gs.getOverdensity(self.galaxyName)
-        w_mean = hp.anafast(vector_apply_mask_hp(overdensity, self.hpMask))
-
+    def calculate_w_mean(self):
+        overdensity_g = self.gs.overdensity.copy()
+        overdensity_g[self.idx_mask] = hp.UNSEEN
+        w_mean = hp.anafast(overdensity_g)
         self.w_model_f1 = np.zeros((Defaults.NEbin, Defaults.NCL))
         for i in range(Defaults.NEbin):
                 self.w_model_f1[i] = w_mean
-
-
 
 
     def computeAtmophericEventDistribution(self, N_yr, N_re, writeMap):
@@ -124,17 +97,14 @@ class Likelihood():
         w_cross = np.zeros((N_re, Defaults.NEbin, 3 * Defaults.NSIDE))
         Ncount = np.zeros(Defaults.NEbin)
 
-        eventnumber_Ebin = np.random.poisson(self.eg.nevts * N_yr)
-        self.eg.atm_gen.nevents_expected.set_value(eventnumber_Ebin, clear_parent=False)
-        eventmaps = self.eg.atm_gen.generate_event_maps(N_re)
-
-
         for iteration in np.arange(N_re):
             print("iter ", iteration)
-            eventmap_atm = eventmaps[iteration]
+            eventnumber_Ebin = np.random.poisson(self.eg.nevts * N_yr)
+            self.eg._atm_gen.nevents_expected.set_value(eventnumber_Ebin, clear_parent=False)
+            eventmap_atm = self.eg._atm_gen.generate_event_maps(1)[0]
             # first mask makes counts in masked region zero, for correct counting of event number. Second mask applies to healpy cross correlation calculation.
-            eventmap_atm = vector_apply_mask(eventmap_atm, Defaults.idx_muon, copy=False)
-            w_cross[iteration] = self.cf.crossCorrelationFromCountsmap(vector_apply_mask_hp(eventmap_atm, self.hpMask))
+            eventmap_atm = hp_utils.vector_apply_mask(eventmap_atm, self.idx_mask, copy=False)
+            w_cross[iteration] = self.cf.crossCorrelationFromCountsmap_mask( eventmap_atm, self.gs.overdensity, self.idx_mask )
             Ncount = Ncount + np.sum(eventmap_atm, axis=1)
 
         self.w_atm_mean = np.mean(w_cross, axis=0)
@@ -150,44 +120,6 @@ class Likelihood():
                        self.w_atm_std)
             np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'Ncount_atm_after_masking.txt'),
                        self.Ncount_atm)
-
-
-    def computeAstrophysicalEventDistribution(self, N_yr, N_re, writeMap):
-        """Compute the cross correlation distribution for Atmopheric event
-
-        Parameters
-        ----------
-        N_yr : `float`
-            Number of years to simulate if computing the models
-        N_re : `int`
-           Number of realizations to use to compute the models
-        writeMap : `bool`
-           If true, save the distributions
-        """
-        density_nu = self.gs.getDensity(self.galaxyName)
-        Ncount_astro = np.zeros(Defaults.NEbin)
-        w_cross_array = np.zeros((N_re, Defaults.NEbin, Defaults.NCL))
-        for i in range(N_re):
-            if i % 1 == 0:
-                print(i)
-            countsmap = self.eg.astroEvent_galaxy(self.eg.Nastro_1yr_Aeffmax * N_yr, density_nu)
-            countsmap = vector_apply_mask(countsmap, Defaults.idx_muon, copy=False)
-            w_cross_array[i] = self.cf.crossCorrelationFromCountsmap(vector_apply_mask_hp(countsmap, self.hpMask))
-            Ncount_astro += np.sum(countsmap, axis=1)
-
-        self.w_astro_mean = np.mean(w_cross_array, axis=0)
-        self.w_astro_std = np.std(w_cross_array, axis=0)
-        self.w_astro_std_square = self.w_astro_std ** 2
-        self.Ncount_astro = Ncount_astro / N_re
-
-        if writeMap:
-            np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'w_astro_mean.txt'),
-                       self.w_astro_mean)
-            np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'w_astro_std.txt'),
-                       self.w_astro_std)
-            np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'Ncount_astro_after_masking.txt'),
-                       self.Ncount_astro)
-
 
 
 
@@ -214,7 +146,8 @@ class Likelihood():
         """
         w_model_mean = (self.w_model_f1[Ebinmin : Ebinmax].T * f).T
         w_model_std_square = (self.w_std_square0[Ebinmin : Ebinmax].T / Ncount[Ebinmin : Ebinmax]).T
-        lnL_le = - (w_data[Ebinmin : Ebinmax] - w_model_mean) ** 2 / w_model_std_square
+
+        lnL_le = - (w_data[Ebinmin : Ebinmax] - w_model_mean) ** 2 / w_model_std_square / 2.
         return np.sum(lnL_le[:, lmin:])
 
     def minimize__lnL(self, w_data, Ncount, lmin, Ebinmin, Ebinmax):
@@ -271,23 +204,21 @@ class Likelihood():
         """
         TS_array = np.zeros(N_re)
         for i in range(N_re):
-            #if i % 10 == 0:
-            #    print (i)
-            datamap = self.eg.SyntheticData(N_yr, f_diff=f_diff, density_nu=self.gs.getDensity(galaxyName))
-            datamap = vector_apply_mask(datamap, Defaults.idx_muon, copy=False)
-            w_data = self.cf.crossCorrelationFromCountsmap(vector_apply_mask_hp(datamap, self.hpMask))
+            datamap = self.eg.SyntheticData(N_yr, f_diff=f_diff, density_nu=self.gs.density)
+            datamap = vector_apply_mask(datamap, self.idx_mask, copy=False)
+            w_data = self.cf.crossCorrelationFromCountsmap_mask( datamap, self.gs.overdensity, self.idx_mask )
             Ncount = np.sum(datamap, axis=1)
             Ebinmax = np.min([np.where(Ncount != 0)[0][-1]+1, 5])
-            minimizeResult = (self.minimize__lnL(w_data, Ncount, lmin, 0, Ebinmax))
-            print(i, Ncount, minimizeResult[0], minimizeResult[-1])
-            TS_array[i] = minimizeResult[-1] #(self.minimize__lnL(w_data, Ncount, lmin, 0, Ebinmax))[-1]
+            minimizeResult =  (self.minimize__lnL(w_data, Ncount, lmin, 0, Ebinmax))
+            print (i, Ncount, minimizeResult[0], minimizeResult[-1])
+            TS_array[i] = minimizeResult[-1]
         if writeData:
             np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'TS_'+str(f_diff)+'_'+galaxyName+'.txt'), TS_array)
         return TS_array
 
 
     def log_prior(self, f):
-        """Compute log of the prior on a f, implemented as a flat prior between 0 and 2
+        """Compute log of the prior on a f, implemented as a flat prior between 0 and 1.5
 
         Parameters
         ----------
@@ -299,7 +230,7 @@ class Likelihood():
         value : `float`
             The log of the prior
         """
-        if np.min(f) > 0. and np.max(f) < 2.:
+        if np.min(f) > 0. and np.max(f) < 1.5:
             return 0.
         return -np.inf
 
@@ -382,8 +313,8 @@ class Likelihood():
             ax.set_ylabel(labels[i])
             ax.yaxis.set_label_coords(-0.1, 0.5)
 
-        axes[-1].set_xlabel("step number")
-        fig.savefig(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'MCMCchain.pdf'))
+        axes[-1].set_xlabel("step number");
+        fig.savefig(os.path.join(Defaults.NUXGAL_PLOT_DIR,'MCMCchain.pdf'))
 
         flat_samples = reader.get_chain(discard=100, thin=15, flat=True)
         #print(flat_samples.shape)

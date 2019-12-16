@@ -149,12 +149,13 @@ class EventGenerator():
 
 
 
-    def SyntheticData(self, N_yr, f_diff=1., density_nu=None, write_map=False):
+    def SyntheticData(self, N_yr, f_diff, density_nu=None, write_map=False):
         """ f_diff = 1 means injecting astro events that sum up to 100% of diffuse muon neutrino flux """
         if f_diff == 0.:
             Natm = np.random.poisson(self.nevts * N_yr)
             self._atm_gen.nevents_expected.set_value(Natm, clear_parent=False)
             countsmap = self._atm_gen.generate_event_maps(1)[0]
+
 
         else:
 
@@ -163,7 +164,7 @@ class EventGenerator():
                 if self.nevts[i] != 0.:
                     f_atm[i] = 1. - self.Nastro_1yr_Aeffmax[i] * f_diff / self.nevts[i]
             # generate atmospheric eventmaps
-            Natm = np.random.poisson(self.nevts * N_yr) #* f_atm)
+            Natm = np.random.poisson(self.nevts * N_yr * f_atm)
             self._atm_gen.nevents_expected.set_value(Natm, clear_parent=False)
             atm_map = self._atm_gen.generate_event_maps(1)[0]
 
