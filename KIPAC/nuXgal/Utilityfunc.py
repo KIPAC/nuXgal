@@ -2,7 +2,6 @@
 
 import os
 import numpy as np
-import healpy as hp
 
 from scipy.stats import norm, distributions
 
@@ -26,7 +25,7 @@ def overdensityMap_mask(countsMap, idx):
     localmap = np.ma.array(countsMap, mask=False)
     localmap.mask[idx] = True
     mean = localmap.mean()
-    return (countsMap / mean - 1.)
+    return countsMap / mean - 1.
 
 
 

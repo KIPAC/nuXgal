@@ -46,7 +46,7 @@ class Analyze():
         return self.powerSpectrum(intensitymap)
 
     def crossCorrelationFromCountsmap(self, countsmap, overdensityMap_g):
-        """Comput the cross correlation between the overdensity map and a counts map"""
+        """Compute the cross correlation between the overdensity map and a counts map"""
         intensitymap = hp_utils.vector_intensity_from_counts_and_exposure(countsmap, self.exposuremap)
         overdensitymap = hp_utils.vector_overdensity_from_intensity(intensitymap)
         odmap_2d = hp_utils.reshape_array_to_2d(overdensityMap_g)
@@ -54,10 +54,11 @@ class Analyze():
 
 
     def crossCorrelationFromCountsmap_mask(self, countsmap, overdensityMap_g, idx_mask):
+        """Compute the cross correlation between the overdensity map and a counts map, including the effects of a mask"""
         intensitymap = hp_utils.vector_intensity_from_counts_and_exposure(countsmap, self.exposuremap)
         w_cross = np.zeros((Defaults.NEbin, Defaults.NCL))
         for i in range(Defaults.NEbin):
-            overdensitymap_nu = Utilityfunc.overdensityMap_mask (countsmap[i], idx_mask)
+            overdensitymap_nu = Utilityfunc.overdensityMap_mask(countsmap[i], idx_mask)
             overdensitymap_nu[idx_mask] = hp.UNSEEN
             w_cross[i] = hp.sphtfunc.anafast(overdensitymap_nu, overdensityMap_g)
         return w_cross

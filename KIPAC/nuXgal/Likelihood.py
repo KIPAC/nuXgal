@@ -14,7 +14,7 @@ from .EventGenerator import EventGenerator
 from .Analyze import Analyze
 from . import Defaults
 from .GalaxySample import GalaxySample
-from .hp_utils import vector_apply_mask_hp, vector_apply_mask
+from .hp_utils import vector_apply_mask
 
 
 class Likelihood():
@@ -63,22 +63,25 @@ class Likelihood():
             self.w_std_square0[i] = self.w_atm_std_square[3] * self.Ncount_atm[3]
 
     def anafastMask(self):
-
-        """ mask Southern sky to avoid muons """
+        """Generate a mask that merges the neutrino selection mask
+        with the galaxy sample mask
+        """
+        # mask Southern sky to avoid muons
         mask_nu = np.zeros(Defaults.NPIXEL, dtype=np.bool)
         mask_nu[Defaults.idx_muon] = 1.
-        """ add the mask of galaxy sample """
+        # add the mask of galaxy sample
         mask_nu[self.gs.idx_galaxymask] = 1.
         self.idx_mask = np.where(mask_nu != 0)
 
 
     def calculate_w_mean(self):
+        """Compute the mean cross corrleations assuming f=1"""
         overdensity_g = self.gs.overdensity.copy()
         overdensity_g[self.idx_mask] = hp.UNSEEN
         w_mean = hp.anafast(overdensity_g)
         self.w_model_f1 = np.zeros((Defaults.NEbin, Defaults.NCL))
         for i in range(Defaults.NEbin):
-                self.w_model_f1[i] = w_mean
+            self.w_model_f1[i] = w_mean
 
 
     def computeAtmophericEventDistribution(self, N_yr, N_re, writeMap):
@@ -103,8 +106,8 @@ class Likelihood():
             self.eg._atm_gen.nevents_expected.set_value(eventnumber_Ebin, clear_parent=False)
             eventmap_atm = self.eg._atm_gen.generate_event_maps(1)[0]
             # first mask makes counts in masked region zero, for correct counting of event number. Second mask applies to healpy cross correlation calculation.
-            eventmap_atm = hp_utils.vector_apply_mask(eventmap_atm, self.idx_mask, copy=False)
-            w_cross[iteration] = self.cf.crossCorrelationFromCountsmap_mask( eventmap_atm, self.gs.overdensity, self.idx_mask )
+            eventmap_atm = vector_apply_mask(eventmap_atm, self.idx_mask, copy=False)
+            w_cross[iteration] = self.cf.crossCorrelationFromCountsmap_mask(eventmap_atm, self.gs.overdensity, self.idx_mask)
             Ncount = Ncount + np.sum(eventmap_atm, axis=1)
 
         self.w_atm_mean = np.mean(w_cross, axis=0)
@@ -206,11 +209,11 @@ class Likelihood():
         for i in range(N_re):
             datamap = self.eg.SyntheticData(N_yr, f_diff=f_diff, density_nu=self.gs.density)
             datamap = vector_apply_mask(datamap, self.idx_mask, copy=False)
-            w_data = self.cf.crossCorrelationFromCountsmap_mask( datamap, self.gs.overdensity, self.idx_mask )
+            w_data = self.cf.crossCorrelationFromCountsmap_mask(datamap, self.gs.overdensity, self.idx_mask)
             Ncount = np.sum(datamap, axis=1)
             Ebinmax = np.min([np.where(Ncount != 0)[0][-1]+1, 5])
-            minimizeResult =  (self.minimize__lnL(w_data, Ncount, lmin, 0, Ebinmax))
-            print (i, Ncount, minimizeResult[0], minimizeResult[-1])
+            minimizeResult = (self.minimize__lnL(w_data, Ncount, lmin, 0, Ebinmax))
+            print(i, Ncount, minimizeResult[0], minimizeResult[-1])
             TS_array[i] = minimizeResult[-1]
         if writeData:
             np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'TS_'+str(f_diff)+'_'+galaxyName+'.txt'), TS_array)
@@ -313,8 +316,8 @@ class Likelihood():
             ax.set_ylabel(labels[i])
             ax.yaxis.set_label_coords(-0.1, 0.5)
 
-        axes[-1].set_xlabel("step number");
-        fig.savefig(os.path.join(Defaults.NUXGAL_PLOT_DIR,'MCMCchain.pdf'))
+        axes[-1].set_xlabel("step number")
+        fig.savefig(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'MCMCchain.pdf'))
 
         flat_samples = reader.get_chain(discard=100, thin=15, flat=True)
         #print(flat_samples.shape)

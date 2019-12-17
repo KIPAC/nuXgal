@@ -163,7 +163,7 @@ def vector_overdensity_from_intensity(intensity):
     mean_intensity = intensity_2d.mean(-1)
     return np.nan_to_num(((intensity_2d.T - mean_intensity)/mean_intensity).T, 0.).reshape(orig_shape)
 
- 
+
 
 def vector_alm_from_overdensity(overdensity, n_alm, **kwargs):
     """Convert overdensity maps to alm coefficients
