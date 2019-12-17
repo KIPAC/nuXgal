@@ -47,7 +47,7 @@ class EventGenerator():
         self.Nastro_1yr_Aeffmax = np.zeros(Defaults.NEbin)
         for i in np.arange(Defaults.NEbin):
             self.Nastro_1yr_Aeffmax[i] = dN_dE_astro(10.**Defaults.map_logE_center[i]) *\
-                (10. ** Defaults.map_logE_center[i] * np.log(10.) * Defaults.dlogE) *\
+                (10. ** Defaults.map_logE_center[i] * np.log(10.) * Defaults.map_dlogE) *\
                 (self.Aeff_max[i] * 1E4) * (333 * 24. * 3600) * 4 * np.pi
 
 

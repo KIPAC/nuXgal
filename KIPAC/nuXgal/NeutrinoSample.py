@@ -43,11 +43,34 @@ class NeutrinoSample():
             jstart = jend
             jend = np.searchsorted(self.Emin_eff, Defaults.map_E_edge[i+1])
             factor_i = (np.power(Defaults.map_E_edge[i+1], 1 - spectralIndex) - np.power(Defaults.map_E_edge[i], 1 - spectralIndex)) / (1 - spectralIndex) / (np.log(10.) * self.dlogE_eff)
-            print (i, jstart, jend, self.Emin_eff[jstart], self.Emin_eff[jend-1], Defaults.map_E_edge[i], Defaults.map_E_edge[i+1], factor_i)
+            #print (i, jstart, jend, self.Emin_eff[jstart], self.Emin_eff[jend-1], Defaults.map_E_edge[i], Defaults.map_E_edge[i+1], factor_i)
             for j in np.arange(jstart, jend):
                 weightedAeff[i] += np.power(self.Ec_eff[j], 1 - spectralIndex) / self.Aeff_table[j * 200 + self.index_coszenith]
             weightedAeff[i] = factor_i / weightedAeff[i]
         return weightedAeff
+
+    def getFluxmap(self, countsmap, spectralIndex):
+        if spectralIndex == 3.7:
+            fluxmap = hp_utils.vector_intensity_from_counts_and_exposure(countsmap, self.exposuremap_atm)
+        elif spectralIndex == 2.2:
+            fluxmap = hp_utils.vector_intensity_from_counts_and_exposure(countsmap, self.exposuremap_astro)
+        else:
+            exposuremap = self.weightedAeff(spectralIndex)
+            fluxmap = hp_utils.vector_intensity_from_counts_and_exposure(countsmap, exposuremap)
+        return fluxmap
+
+
+    def getPowerSpectrumFromFluxmap(self, fluxmap, idx_mask):
+        w_auto = np.zeros((Defaults.NEbin, Defaults.NCL))
+        for i in range(Defaults.NEbin):
+            overdensitymap_nu = Utilityfunc.overdensityMap_mask(fluxmap[i], idx_mask)
+            overdensitymap_nu[idx_mask] = hp.UNSEEN
+            w_auto[i] = hp.sphtfunc.anafast(overdensitymap_nu)
+        return w_auto
+
+    def getPowerSpectrumFromCountsmap(self, countsmap, spectralIndex, idx_mask):
+        fluxmap = self.getFluxmap(countsmap, spectralIndex)
+        return self.getPowerSpectrumFromFluxmap(fluxmap, idx_mask)
 
 
     def getCrossCorrelation_fluxmap(self, fluxmap, overdensityMap_g, idx_mask):
@@ -71,16 +94,17 @@ class NeutrinoSample():
 
 
 
-    def getIntensity(self, countsmap, dt_days, spectralIndex):
+    def getIntensityFromCountsmap(self, countsmap, dt_years, spectralIndex):
         """Convert a countsmap to total intensity using the exposure map"""
-        if spectralIndex == 3.7:
-            fluxmap = hp_utils.vector_intensity_from_counts_and_exposure(countsmap, self.exposuremap_atm)
-        elif spectralIndex == 2.2:
-            fluxmap = hp_utils.vector_intensity_from_counts_and_exposure(countsmap, self.exposuremap_astro)
-        else:
-            exposuremap = self.weightedAeff(spectralIndex)
-            fluxmap = hp_utils.vector_intensity_from_counts_and_exposure(countsmap, exposuremap)
+        fluxmap = self.getFluxmap(countsmap, spectralIndex)
+        intensity = np.zeros(Defaults.NEbin)
 
         for i in np.arange(Defaults.NEbin):
-            intensity[i] = np.sum(fluxmap[i]) / (10.**Defaults.map_logE_center[i] * np.log(10.) * Defaults.dlogE) / (dt_days * Defaults.DT_SECONDS) / (4 * np.pi)  / 1e4 ## exposure map in m^2
+            intensity[i] = np.sum(fluxmap[i]) / (10.**Defaults.map_logE_center[i] * np.log(10.) * Defaults.dlogE) / (dt_years * Defaults.DT_SECONDS) / (4 * np.pi)  / 1e4 ## exposure map in m^2
+        return intensity
+
+    def getIntensityFromFluxmap(self, fluxmap, dt_years):
+        intensity = np.zeros(Defaults.NEbin)
+        for i in np.arange(Defaults.NEbin):
+            intensity[i] = np.sum(fluxmap[i]) / (10.**Defaults.map_logE_center[i] * np.log(10.) * Defaults.map_dlogE) / (dt_years * Defaults.DT_SECONDS) / (4 * np.pi)  / 1e4 ## exposure map in m^2
         return intensity

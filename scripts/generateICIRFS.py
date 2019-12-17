@@ -27,6 +27,7 @@ def main():
     data_dir = os.path.join(args.output, 'data', 'data')
     irf_dir = os.path.join(args.output, 'data', 'irfs')
     plot_dir = os.path.join(args.output, 'plots')
+    testfigpath = os.path.join(Defaults.NUXGAL_PLOT_DIR, 'test')
 
     counts_map_format = os.path.join(data_dir, 'counts_atm{i}.fits')
     aeff_map_format = os.path.join(irf_dir, 'Aeff{i}.fits')
@@ -58,15 +59,25 @@ def main():
     # pi - zenith_south_pole = zenith_regular
     # assign random azimuthal angles
     randomphi = np.random.random_sample(len(AtmBG_file)) * 2 * np.pi
-    _index_map_pixel = hp.pixelfunc.ang2pix(Defaults.NSIDE, (180. - AtmBG_file[:, 6]) * np.pi / 180., randomphi)
+    #_index_map_pixel = hp.pixelfunc.ang2pix(Defaults.NSIDE, (180. - AtmBG_file[:, 6]) * np.pi / 180., randomphi)
+    _index_map_pixel = hp.pixelfunc.ang2pix(Defaults.NSIDE, np.radians(180. - AtmBG_file[:, 6]), np.radians(360 - AtmBG_file[:,3]) )
 
     # put events into healpy maps
     for i, _ in enumerate(AtmBG_file):
         countsmap[_index_map_logE[i]][_index_map_pixel[i]] += 1
 
+    mask = np.zeros(Defaults.NPIXEL)
+    mask[Defaults.idx_muon] = 1.
+    for i in range(Defaults.NEbin):
+        test = np.ma.masked_array(countsmap[i], mask = mask)
+        print (test.sum())
 
-    file_utils.write_maps_from_fits(countsmap, counts_map_format)
+
+    file_utils.write_maps_to_fits(countsmap, counts_map_format)
+
+    figs = FigureDict()
     figs.mollview_maps('counts_atm', countsmap)
+    figs.save_all(testfigpath, 'pdf')
 
 
     # -------------- exposure map --------------
@@ -90,7 +101,7 @@ def main():
     for i in np.arange(len(Defaults.map_logE_center)):
         exposuremap[i] = Aeff_table[index_E[i] * 200 + index_coszenith]
 
-    file_utils.write_maps_from_fits(exposuremap, aeff_map_format)
+    file_utils.write_maps_to_fits(exposuremap, aeff_map_format)
     figs.mollview_maps('Aeff', exposuremap)
 
 

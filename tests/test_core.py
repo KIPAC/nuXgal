@@ -86,12 +86,24 @@ def atmBG_coszenith(energyBin=0):
 def atmBG():
     eg = EventGenerator()
     eventmap = eg.atmEvent(1.)
+    eventmap2 = np.zeros((Defaults.NEbin, Defaults.NPIXEL))
 
     file_utils.write_maps_to_fits(eventmap, bgpath)
+    for i in range(Defaults.NEbin):
+        eventmap2[i] = eventmap[i]
+        eventmap2[i][Defaults.idx_muon] = hp.UNSEEN
+
+
+    mask = np.zeros(Defaults.NPIXEL)
+    mask[Defaults.idx_muon] = 1.
+    for i in range(Defaults.NEbin):
+        test = np.ma.masked_array(eventmap[i], mask = mask)
+        print (test.sum())
+
 
     if MAKE_TEST_PLOTS:
         figs = FigureDict()
-        figs.mollview_maps('eventmap_atm', eventmap)
+        figs.mollview_maps('eventmap_atm', eventmap2)
         figs.save_all(testfigpath, 'pdf')
 
 
@@ -99,7 +111,7 @@ def test_EventGenerator():
     for i in range(0, 5):
         atmBG_coszenith(i)
 
-    astroEvent_galaxy()
+    #astroEvent_galaxy()
     atmBG()
 
 
@@ -307,6 +319,6 @@ if __name__ == '__main__':
     #test_Demonstration()
 
     test_EventGenerator()
-    test_PowerSpectrum()
-    test_CrossCorrelation()
-    test_energySpectrum()
+    #test_PowerSpectrum()
+    #test_CrossCorrelation()
+    #test_energySpectrum()
