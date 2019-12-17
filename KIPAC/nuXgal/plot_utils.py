@@ -246,7 +246,7 @@ class FigureDict:
         for kw in ['title', 'xlabel', 'ylabel', 'figsize']:
             if kw in kwcopy:
                 kwsetup[kw] = kwcopy.pop(kw)
-        o_dict = self.setup_figure(key, **kwsetup)        
+        o_dict = self.setup_figure(key, **kwsetup)
         fig = o_dict['fig']
         axes = o_dict['axes']
         for i, yvals in enumerate(yvals_list):
@@ -271,7 +271,7 @@ class FigureDict:
         for kw in ['title', 'xlabel', 'ylabel', 'figsize']:
             if kw in kwcopy:
                 kwsetup[kw] = kwcopy.pop(kw)
-        o_dict = self.setup_figure(key, **kwsetup)        
+        o_dict = self.setup_figure(key, **kwsetup)
         labels = kwcopy.pop('labels', None)
         fig = o_dict['fig']
         axes = o_dict['axes']
@@ -346,10 +346,10 @@ class FigureDict:
             if colors is not None:
                 c_dict['color'] = colors[i]
             if band_2sig is not None:
-                axes.fill_between(xvals, band_2sig[i][0],  band_2sig[i][1])
+                axes.fill_between(xvals, band_2sig[i][0], band_2sig[i][1])
 
             if band_1sig is not None:
-                axes.fill_between(xvals, band_1sig[i][0],  band_1sig[i][1])
+                axes.fill_between(xvals, band_1sig[i][0], band_1sig[i][1])
             axes.plot(xvals, _cl_data.clip(ymin, ymax), lw=lw, **c_dict)
             if do_errs:
                 axes.errorbar(xvals, _cl_data, yerr=yerr[i], **c_dict)
@@ -501,7 +501,7 @@ class FigureDict:
                 kwsetup[kw] = kwcopy.pop(kw)
         o_dict = self.setup_figure(key, **kwsetup)
         labels = kwcopy.pop('labels', None)
-   
+
         fig = o_dict['fig']
         axes = o_dict['axes']
         for i, vals in enumerate(vals_list):
@@ -535,18 +535,17 @@ class FigureDict:
             if kw in kwcopy:
                 kwsetup[kw] = kwcopy.pop(kw)
         o_dict = self.setup_figure(key, **kwsetup)
-        labels = kwcopy.pop('labels', None)
-   
-        fig = o_dict['fig']
+        #labels = kwcopy.pop('labels', None)
+
+        #fig = o_dict['fig']
         axes = o_dict['axes']
 
         hist_2d = np.histogram2d(l_array.flatten(), data.T.flatten(), bins=bins)
         extent = (bins[0][0], bins[0][-1], bins[1][0], bins[1][-1])
-        
+
         img = axes.imshow(hist_2d[0].T, extent=extent, aspect='auto', origin='lower')
         cbar = plt.colorbar(img)
-        
+
         o_dict['img'] = img
         o_dict['cbar'] = cbar
         return o_dict
-

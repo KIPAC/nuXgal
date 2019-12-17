@@ -270,7 +270,7 @@ class AstroGenerator_v2(Cache):
         return self.prob_reject().mean(1)
 
 
-    def generate_event_maps(self, n_trials, **kwargs):
+    def generate_event_maps(self, n_trials):
         """Generate a set of `healpy` maps
 
         Parameters
@@ -285,15 +285,16 @@ class AstroGenerator_v2(Cache):
         """
 
         event_map_list = []
-        for i in range(n_trials):
+        for _ in range(n_trials):
             for j in range(self._nmap):
-                expected_counts_map = self.prob_reject()[j] * self.normalized_counts_map * self.nevents_expected()[j]
+                expected_counts_map = self.prob_reject()[j] *\
+                    self.normalized_counts_map * self.nevents_expected()[j]
                 observed_counts_map = np.random.poisson(expected_counts_map)
                 event_map_list.append(observed_counts_map)
         return np.vstack(event_map_list).reshape((n_trials, self._nmap, self._npix))
 
 
-    def generate_event_maps_NoReject(self, n_trials, **kwargs):
+    def generate_event_maps_NoReject(self, n_trials):
         """Generate a set of `healpy` maps, with rejection prob = 0 (accept all events)
 
         Parameters
@@ -308,11 +309,10 @@ class AstroGenerator_v2(Cache):
         """
 
         event_map_list = []
-        for i in range(n_trials):
-            for i in range(n_trials):
-                for j in range(self._nmap):
-                    expected_counts_map = self.normalized_counts_map * self.nevents_expected()[j]
-                    observed_counts_map = np.random.poisson(expected_counts_map)
-                    event_map_list.append(observed_counts_map)
+        for _ in range(n_trials):
+            for j in range(self._nmap):
+                expected_counts_map = self.normalized_counts_map * self.nevents_expected()[j]
+                observed_counts_map = np.random.poisson(expected_counts_map)
+                event_map_list.append(observed_counts_map)
 
         return np.vstack(event_map_list).reshape((n_trials, self._nmap, self._npix))

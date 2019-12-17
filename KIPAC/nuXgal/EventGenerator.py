@@ -2,13 +2,11 @@
 
 import os
 import numpy as np
-import healpy as hp
 
 from . import Defaults
 from . import file_utils
-from .GalaxySample import GalaxySample
 from .Generator import AtmGenerator, AstroGenerator_v2
-
+from .file_utils import write_maps_to_fits, read_maps_from_fits
 
 # dN/dE \propto E^alpha
 def randPowerLaw(alpha, Ntotal, emin, emax):
@@ -43,11 +41,14 @@ class EventGenerator():
         self.Aeff_max = aeff.max(1)
 
         # calculate expected event number using IceCube diffuse neutrino flux
-        dN_dE_astro = lambda E_GeV: 1.44E-18 * (E_GeV / 100e3)**(-2.28) # GeV^-1 cm^-2 s^-1 sr^-1, muon neutrino
+        # in GeV^-1 cm^-2 s^-1 sr^-1, muon neutrino
+        dN_dE_astro = lambda E_GeV: 1.44E-18 * (E_GeV / 100e3)**(-2.28)
         # total expected number of events before cut, for one year data
         self.Nastro_1yr_Aeffmax = np.zeros(Defaults.NEbin)
         for i in np.arange(Defaults.NEbin):
-            self.Nastro_1yr_Aeffmax[i] = dN_dE_astro(10.**Defaults.map_logE_center[i]) * (10. ** Defaults.map_logE_center[i] * np.log(10.) * Defaults.dlogE) * (self.Aeff_max[i] * 1E4) * (333 * 24. * 3600) * 4 * np.pi
+            self.Nastro_1yr_Aeffmax[i] = dN_dE_astro(10.**Defaults.map_logE_center[i]) *\
+                (10. ** Defaults.map_logE_center[i] * np.log(10.) * Defaults.dlogE) *\
+                (self.Aeff_max[i] * 1E4) * (333 * 24. * 3600) * 4 * np.pi
 
 
     @property
@@ -182,5 +183,6 @@ class EventGenerator():
 
 
     def readSyntheticData(self, basekey='syntheticData'):
+        """Read and return a map of synthetic data"""
         filename_format = os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, basekey + '{i}.fits')
         return read_maps_from_fits(filename_format, Defaults.NEbin)

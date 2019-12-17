@@ -1,23 +1,40 @@
+"""Contains GalaxySample class to organize galaxy samples for cross correlation"""
+
+
 import os
 
 import numpy as np
 
 import healpy as hp
 
-from . import Defaults
-
-from . import Utilityfunc
-
-from . import FigureDict
+import matplotlib.pyplot as plt
 
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 
+from . import Defaults
+
+from . import Utilityfunc
+
+
 class GalaxySample():
     """Class to organize galaxy samples for cross correlation
     """
-    def __init__(self, galaxyName, computeGalaxy = False):
+    def __init__(self, galaxyName, computeGalaxy=False):
+        """C'tor
 
+        Currently this implements:
+        WISE : WISE-2MASS galaxy sample map based on ~5M galaixes
+        analy : simulated galaxy sample based on analytical power spectrum
+        flat : Poisson generated flat galaxy sample
+
+        Parameters
+        ----------
+        galaxyName : `str`
+            Name for the sample, used to define the sample and specify output file paths
+        computeGalaxy: `bool`
+            If True, generate synthetic maps from CL
+        """
         if computeGalaxy:
             self.generateGalaxy()
 
@@ -28,16 +45,17 @@ class GalaxySample():
 
 
     def initiateGalaxySample(self):
+        """Internal method to initialize a particular sample"""
         if self.galaxyName == 'WISE':
-            """ WISE-2MASS galaxy sample map based on ~5M galaixes """
-            galaxymap_path = os.path.join(Defaults.NUXGAL_ANCIL_DIR,'WISE_galaxymap.fits')
+            #WISE-2MASS galaxy sample map based on ~5M galaixes
+            galaxymap_path = os.path.join(Defaults.NUXGAL_ANCIL_DIR, 'WISE_galaxymap.fits')
             self.galaxymap = hp.fitsfunc.read_map(galaxymap_path, verbose=False)
             c_icrs = SkyCoord(ra=(2 * np.pi - Defaults.exposuremap_phi) * u.radian, dec=(np.pi/2 - Defaults.exposuremap_theta)*u.radian, frame='icrs')
             self.idx_galaxymask = np.where(np.abs(c_icrs.galactic.b.degree) < 10)
 
 
         if self.galaxyName == 'analy':
-            """ simulated galaxy sample based on analytical power spectrum """
+            #simulated galaxy sample based on analytical power spectrum
             analyCLpath = os.path.join(Defaults.NUXGAL_ANCIL_DIR, 'Cl_ggRM.dat')
             self.analyCL = np.loadtxt(analyCLpath)
             analy_galaxymap_path = os.path.join(Defaults.NUXGAL_ANCIL_DIR, 'analy_galaxymap.fits')
@@ -54,7 +72,17 @@ class GalaxySample():
 
 
 
-    def generateGalaxy(self, N_g = 2000000, write_map = True):
+    def generateGalaxy(self, N_g=2000000, write_map=True):
+        """Generate a synthetic galaxy sample
+
+        Parameters
+        ----------
+        N_g : `int`
+            Number of galaxies to generate
+        write_map: `bool`
+            if True write the generate map to the ancilary data area
+        """
+
         analyCLpath = os.path.join(Defaults.NUXGAL_ANCIL_DIR, 'Cl_ggRM.dat')
         analyCL = np.loadtxt(analyCLpath)
         np.random.seed(Defaults.randomseed_galaxy)
@@ -70,9 +98,14 @@ class GalaxySample():
             #analy_density_path = os.path.join(Defaults.NUXGAL_ANCIL_DIR, 'analy_density.fits')
             #hp.fitsfunc.write_map(analy_density_path, self.analy_density, overwrite=True)
 
-
     def plotGalaxymap(self, plotmax=100):
-        figs = FigureDict()
-        hp.mollview(self.galaxymap, title=keyword, max=plotmax)
+        """Plot galaxy counts map for a particular sample
+
+        Parameters
+        ----------
+        plotmax : `float`
+            Maximum value in the plot
+        """
+        hp.mollview(self.galaxymap, title=self.galaxyName, max=plotmax)
         testfigpath = os.path.join(Defaults.NUXGAL_PLOT_DIR, 'test_')
         plt.savefig(testfigpath+self.galaxyName+'_galaxy.pdf')

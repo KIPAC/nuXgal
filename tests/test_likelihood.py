@@ -26,7 +26,11 @@ from KIPAC.nuXgal.plot_utils import FigureDict
 
 from KIPAC.nuXgal.GalaxySample import GalaxySample
 
-from Utils import MAKE_TEST_PLOTS
+try:
+    from Utils import MAKE_TEST_PLOTS
+except ImportError:
+    from .Utils import MAKE_TEST_PLOTS
+
 
 from scipy import stats
 
@@ -39,6 +43,8 @@ N_yr = 10
 galaxyName = 'WISE'
 llh = Likelihood(N_yr=N_yr,  galaxyName=galaxyName, computeSTD=False, N_re=100)
 
+datamap = llh.eg.SyntheticData(N_yr, f_diff=0., density_nu = llh.gs.getDensity('WISE'))
+datamap = vector_apply_mask(datamap, Defaults.idx_muon, copy=False)
 
 
 
@@ -56,7 +62,7 @@ def plotLnL(w_data, Ncount, lmin, energyBin):
     figs.save_all(testfigpath, 'pdf')
 
 
-def test_STDdependence(energyBin, energyBin2):
+def test_STDdependence(energyBin=2, energyBin2=0):
     figs = FigureDict()
     o_dict = figs.setup_figure('compare_std', xlabel='$l$', ylabel='$C_l$', figsize=(8, 6))
     fig = o_dict['fig']
@@ -75,7 +81,7 @@ def test_STDdependence(energyBin, energyBin2):
 
 
 
-def test_TS_distribution(readfile = True):
+def test_TS_distribution(readfile = False):
     lmin = 50
     N_re = 200
     if not readfile:
@@ -118,8 +124,9 @@ def test_TS_distribution(readfile = True):
 
 
 
-def testMCMC(datamap, Ncount_astro):
-    datamap = vector_apply_mask(datamap, llh.idx_mask, copy=False)
+def testMCMC(datamap Ncount_astro):
+    w_data = llh.cf.crossCorrelationFromCountsmap(datamap)
+    #datamap = vector_apply_mask(datamap, llh.idx_mask, copy=False)
     lmin = 50
     w_data = llh.cf.crossCorrelationFromCountsmap_mask(datamap, llh.gs.overdensity, llh.idx_mask)
     Ncount = np.sum(datamap, axis=1)

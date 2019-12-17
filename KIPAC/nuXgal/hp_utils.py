@@ -163,7 +163,7 @@ def vector_overdensity_from_intensity(intensity):
     mean_intensity = intensity_2d.mean(-1)
     return np.nan_to_num(((intensity_2d.T - mean_intensity)/mean_intensity).T, 0.).reshape(orig_shape)
 
- 
+
 
 def vector_alm_from_overdensity(overdensity, n_alm, **kwargs):
     """Convert overdensity maps to alm coefficients
@@ -472,8 +472,8 @@ def cross_correlate_alms_normed(alms1, alms2, **kwargs):
         Cross correleation power spectra
     """
     cross = hp.sphtfunc.alm2cl(alms1, alms2, **kwargs)
-    cl_1  = hp.sphtfunc.alm2cl(alms1, **kwargs)
-    cl_2  = hp.sphtfunc.alm2cl(alms2, **kwargs)
+    cl_1 = hp.sphtfunc.alm2cl(alms1, **kwargs)
+    cl_2 = hp.sphtfunc.alm2cl(alms2, **kwargs)
     return cross / np.sqrt(cl_1 * cl_2)
 
 
