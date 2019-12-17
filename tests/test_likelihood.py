@@ -124,15 +124,11 @@ def test_TS_distribution(readfile = False):
 
 
 
-<<<<<<< HEAD
-def testMCMC(datamap=datamap):
+def testMCMC(datamap Ncount_astro):
     w_data = llh.cf.crossCorrelationFromCountsmap(datamap)
-=======
-def testMCMC(datamap, Ncount_astro):
-    datamap = vector_apply_mask(datamap, llh.idx_mask, copy=False)
+    #datamap = vector_apply_mask(datamap, llh.idx_mask, copy=False)
     lmin = 50
     w_data = llh.cf.crossCorrelationFromCountsmap_mask(datamap, llh.gs.overdensity, llh.idx_mask)
->>>>>>> master
     Ncount = np.sum(datamap, axis=1)
     Ebinmax = np.min([np.where(Ncount != 0)[0][-1]+1, 5])
     print (Ncount)
