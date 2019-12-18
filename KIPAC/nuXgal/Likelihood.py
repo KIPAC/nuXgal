@@ -33,7 +33,7 @@ class Likelihood():
         N_re : `int`
            Number of realizations to use to compute the models
         """
-        self.eg = EventGenerator()
+
         self.gs = GalaxySample(galaxyName)
         self.cf = Analyze()
         self.anafastMask()
@@ -99,12 +99,13 @@ class Likelihood():
 
         w_cross = np.zeros((N_re, Defaults.NEbin, 3 * Defaults.NSIDE))
         Ncount = np.zeros(Defaults.NEbin)
+        eg = EventGenerator()
 
         for iteration in np.arange(N_re):
             print("iter ", iteration)
-            eventnumber_Ebin = np.random.poisson(self.eg.nevts * N_yr)
-            self.eg._atm_gen.nevents_expected.set_value(eventnumber_Ebin, clear_parent=False)
-            eventmap_atm = self.eg._atm_gen.generate_event_maps(1)[0]
+            eventnumber_Ebin = np.random.poisson(eg.nevts * N_yr)
+            eg._atm_gen.nevents_expected.set_value(eventnumber_Ebin, clear_parent=False)
+            eventmap_atm = eg._atm_gen.generate_event_maps(1)[0]
             # first mask makes counts in masked region zero, for correct counting of event number. Second mask applies to healpy cross correlation calculation.
             eventmap_atm = vector_apply_mask(eventmap_atm, self.idx_mask, copy=False)
             w_cross[iteration] = self.cf.crossCorrelationFromCountsmap_mask(eventmap_atm, self.gs.overdensity, self.idx_mask)
@@ -205,9 +206,10 @@ class Likelihood():
         TS_array : `np.array`
             The array of TS values
         """
+        eg = EventGenerator()
         TS_array = np.zeros(N_re)
         for i in range(N_re):
-            datamap = self.eg.SyntheticData(N_yr, f_diff=f_diff, density_nu=self.gs.density)
+            datamap = eg.SyntheticData(N_yr, f_diff=f_diff, density_nu=self.gs.density)
             datamap = vector_apply_mask(datamap, self.idx_mask, copy=False)
             w_data = self.cf.crossCorrelationFromCountsmap_mask(datamap, self.gs.overdensity, self.idx_mask)
             Ncount = np.sum(datamap, axis=1)

@@ -36,7 +36,7 @@ NUXGAL_PLOT_DIR = os.path.join(NUXGAL_DIR, 'plots')
 NPIXEL = hp.pixelfunc.nside2npix(NSIDE)
 map_logE_edge = np.linspace(LOG_EMIN, LOG_EMAX, NEEdges)
 map_logE_center = (map_logE_edge[0:-1] + map_logE_edge[1:]) / 2.
-dlogE = np.mean(map_logE_edge[1:] - map_logE_edge[0:-1])
+map_dlogE = np.mean(map_logE_edge[1:] - map_logE_edge[0:-1])
 map_E_edge = np.power(10, map_logE_edge)
 map_E_center = np.power(10, map_logE_center)
 map_E_center_sq = map_E_center * map_E_center
@@ -51,4 +51,5 @@ ell = np.arange(NSIDE * 3)
 
 # southern sky mask
 exposuremap_theta, exposuremap_phi = hp.pixelfunc.pix2ang(NSIDE, np.arange(NPIXEL))
+
 idx_muon = np.where(exposuremap_theta > np.radians(85.))
