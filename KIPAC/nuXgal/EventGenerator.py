@@ -154,20 +154,24 @@ class EventGenerator():
 
 
 
-    def SyntheticData(self, N_yr, f_diff, density_nu=None, write_map=False):
+    def SyntheticData(self, N_yr, f_diff, density_nu=None):
         """ f_diff = 1 means injecting astro events that sum up to 100% of diffuse muon neutrino flux """
         if f_diff == 0.:
             Natm = np.random.poisson(self.nevts * N_yr)
             self._atm_gen.nevents_expected.set_value(Natm, clear_parent=False)
             countsmap = self._atm_gen.generate_event_maps(1)[0]
-
+            return countsmap, None
 
         else:
-
             f_atm = np.zeros(Defaults.NEbin)
+            f_diff = 1.
             for i in range(Defaults.NEbin):
-                if self.nevts[i] != 0.:
-                    f_atm[i] = 1. - self.Nastro_1yr_Aeffmax[i] * f_diff / self.nevts[i]
+                if self.nnus[i] != 0.:
+                    f_atm[i] = 1. - self.Nastro_1yr_Aeffmax[i] * f_diff / self.nnus[i]
+
+            #print ('fraction of atm events:', f_atm)
+
+
             # generate atmospheric eventmaps
             Natm = np.random.poisson(self.nevts * N_yr * f_atm)
             self._atm_gen.nevents_expected.set_value(Natm, clear_parent=False)
@@ -177,17 +181,4 @@ class EventGenerator():
             Nastro = np.random.poisson(self.Nastro_1yr_Aeffmax * N_yr * f_diff)
             astro_map = self.astroEvent_galaxy(Nastro, density_nu)
 
-            countsmap = atm_map + astro_map
-
-        if write_map:
-            basekey = 'syntheticData'
-            filename_format = os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, basekey + '{i}.fits')
-            write_maps_to_fits(countsmap, filename_format)
-
-        return countsmap
-
-
-    def readSyntheticData(self, basekey='syntheticData'):
-        """Read and return a map of synthetic data"""
-        filename_format = os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, basekey + '{i}.fits')
-        return read_maps_from_fits(filename_format, Defaults.NEbin)
+            return atm_map, astro_map

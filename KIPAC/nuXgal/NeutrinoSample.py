@@ -27,100 +27,101 @@ class NeutrinoSample():
         self.wAeff = WeightedAeff()
         self.countsmap = None
         self.fluxmap = None
+        self.idx_mask = None
+        self.f_sky = 1.
 
 
     def inputFluxmap(self, fluxmap):
         self.fluxmap = fluxmap
+        self.fluxmap_fullsky = fluxmap
 
-    def inputCountsmap(self, countsmap, spectralIndex):
+    def inputCountsmap(self, countsmap, spectralIndex=None):
         self.countsmap = countsmap
-        if spectralIndex == 3.7:
-            self.fluxmap = hp_utils.vector_intensity_from_counts_and_exposure(countsmap, self.wAeff.exposuremap_atm)
-        elif spectralIndex == 2.28:
-            self.fluxmap = hp_utils.vector_intensity_from_counts_and_exposure(countsmap, self.wAeff.exposuremap_astro)
-        else:
-            exposuremap = self.wAeff.computeWeightedAeff(spectralIndex)
-            self.fluxmap = hp_utils.vector_intensity_from_counts_and_exposure(countsmap, exposuremap)
+        self.countsmap_fullsky = countsmap
+
+        if spectralIndex is not None:
+            if spectralIndex == 3.7:
+                self.fluxmap = hp_utils.vector_intensity_from_counts_and_exposure(countsmap, self.wAeff.exposuremap_atm)
+            elif spectralIndex == 2.28:
+                self.fluxmap = hp_utils.vector_intensity_from_counts_and_exposure(countsmap, self.wAeff.exposuremap_astro)
+            else:
+                exposuremap = self.wAeff.computeWeightedAeff(spectralIndex)
+                self.fluxmap = hp_utils.vector_intensity_from_counts_and_exposure(countsmap, exposuremap)
+            self.fluxmap_fullsky = self.fluxmap
+
 
     def inputCountsmapMix(self, countsmap_atm, countsmap_astro):
         fluxmap_atm = hp_utils.vector_intensity_from_counts_and_exposure(countsmap_atm, self.wAeff.exposuremap_atm)
         fluxmap_astro = hp_utils.vector_intensity_from_counts_and_exposure(countsmap_astro, self.wAeff.exposuremap_astro)
         self.fluxmap = fluxmap_atm + fluxmap_astro
+        self.countsmap = countsmap_atm + countsmap_astro
+        self.fluxmap_fullsky = self.fluxmap
+        self.countsmap_fullsky = self.countsmap
+
+    def inputData(self, countsmappath, fluxmappath):
+        self.fluxmap = file_utils.read_maps_from_fits(fluxmappath, Defaults.NEbin)
+        self.countsmap = file_utils.read_maps_from_fits(countsmappath, Defaults.NEbin)
+        self.fluxmap_fullsky = self.fluxmap
+        self.countsmap_fullsky = self.countsmap
+
+    def updateMask(self, idx_mask):
+        self.idx_mask = idx_mask
+        self.f_sky = 1. - len( idx_mask[0] ) / float(Defaults.NPIXEL)
+        fluxmap = self.fluxmap_fullsky.copy()
+        countsmap = self.countsmap_fullsky.copy() + 0. # +0. to convert to float array
+
+        for i in range(Defaults.NEbin):
+            fluxmap[i][idx_mask] = hp.UNSEEN
+            countsmap[i][idx_mask] = hp.UNSEEN
+
+        self.fluxmap = hp.ma(fluxmap)
+        self.countsmap = hp.ma(countsmap)
+
+    def getEventCounts(self):
+        return self.countsmap.sum(axis=1)
 
 
-
-    def getIntensity(self, dt_years, idx_mask=None):
+    def getIntensity(self, dt_years):
         """Compute the intensity / energy flux of the neutirno sample"""
-        assert self.fluxmap is not None, 'NeutrinoSample: fluxmap uninitialized'
-        if idx_mask is None:
-            fluxmap_unmasked = self.fluxmap
-            f_sky = 1.
-        else:
-            fluxmap_unmasked = hp_utils.vector_apply_mask(self.fluxmap, idx_mask, copy=True)
-            f_sky = 1. - len( idx_mask[0] ) / float(Defaults.NPIXEL)
-            print ('f_sky =', f_sky)
 
-        intensity = np.zeros(Defaults.NEbin)
-        for i in np.arange(Defaults.NEbin):
-            intensity[i] = np.sum(fluxmap_unmasked[i]) / (10.**Defaults.map_logE_center[i] * np.log(10.) * Defaults.map_dlogE) / (dt_years * Defaults.DT_SECONDS) / (4 * np.pi * f_sky)  / 1e4 ## exposure map in m^2
+        assert self.fluxmap is not None, 'NeutrinoSample: fluxmap uninitialized'
+        intensity = self.fluxmap.sum(axis=1) / (10.**Defaults.map_logE_center * np.log(10.) * Defaults.map_dlogE) / (dt_years * Defaults.DT_SECONDS) / (4 * np.pi * f_sky)  / 1e4 ## exposure map in m^2
         return intensity
 
 
-    def getPowerSpectrum(self, idx_mask=None):
+
+    def getPowerSpectrum(self):
         """Compute the power spectrum of the neutirno sample"""
 
         assert self.fluxmap is not None, 'NeutrinoSample: fluxmap uninitialized'
         w_auto = np.zeros((Defaults.NEbin, Defaults.NCL))
-
-        if idx_mask is not None:
-            for i in range(Defaults.NEbin):
-                overdensitymap_nu = Utilityfunc.overdensityMap_mask(self.fluxmap[i], idx_mask)
-                overdensitymap_nu[idx_mask] = hp.UNSEEN
-                w_auto[i] = hp.sphtfunc.anafast(overdensitymap_nu)
-            return w_auto
-
-        else:
-            overdensitymap = hp_utils.vector_overdensity_from_intensity(self.fluxmap)
-            return hp_utils.vector_cl_from_overdensity(overdensitymap, Defaults.NCL)
+        for i in range(Defaults.NEbin):
+            overdensity = self.fluxmap[i] / self.fluxmap[i].mean() - 1.
+            w_auto[i] = hp.sphtfunc.anafast(overdensity)
+        return w_auto
 
 
-
-    def getCrossCorrelation(self, overdensityMap_g, idx_mask=None):
+    def getCrossCorrelation(self, overdensityMap_g):
         """Compute the cross correlation between the overdensity map and a counts map"""
 
         assert self.fluxmap is not None, 'NeutrinoSample: fluxmap uninitialized'
         w_cross = np.zeros((Defaults.NEbin, Defaults.NCL))
-
-        if idx_mask is not None:
-            for i in range(Defaults.NEbin):
-                overdensitymap_nu = Utilityfunc.overdensityMap_mask(self.fluxmap[i], idx_mask)
-                overdensitymap_nu[idx_mask] = hp.UNSEEN
-                w_cross[i] = hp.sphtfunc.anafast(overdensitymap_nu, overdensityMap_g)
-            return w_cross
-        else:
-            overdensitymap = hp_utils.vector_overdensity_from_intensity(self.fluxmap)
-            odmap_2d = hp_utils.reshape_array_to_2d(overdensityMap_g)
-            return hp_utils.vector_cross_correlate_maps(overdensitymap, odmap_2d, Defaults.NCL)
+        for i in range(Defaults.NEbin):
+            overdensity = self.fluxmap[i] / self.fluxmap[i].mean() - 1.
+            w_cross[i] = hp.sphtfunc.anafast(overdensity, overdensityMap_g)
+        return w_cross
 
 
-    def mollview_maps_mask(self, map, testfigpath, idx_mask=None):
-        if idx_mask is not None:
-            for i in range(Defaults.NEbin):
-                map[i][idx_mask] = hp.UNSEEN
 
+    def plotFluxmap(self, testfigpath):
         figs = FigureDict()
-        figs.mollview_maps('fluxmap', map)
+        figs.mollview_maps('fluxmap', self.fluxmap)
         figs.save_all(testfigpath, 'pdf')
 
-
-    def plotFluxmap(self, testfigpath, idx_mask=None):
-        assert self.fluxmap is not None, 'NeutrinoSample: fluxmap uninitialized'
-        self.mollview_maps_mask(self.fluxmap, testfigpath, idx_mask)
-
-
-    def plotCountsmap(self, testfigpath, idx_mask=None):
-        assert self.countsmap is not None, 'NeutrinoSample: countsmap uninitialized'
-        self.mollview_maps_mask(self.countsmap, testfigpath, idx_mask)
+    def plotCountsmap(self, testfigpath):
+        figs = FigureDict()
+        figs.mollview_maps('countsmap', self.countsmap)
+        figs.save_all(testfigpath, 'pdf')
 
 
 
