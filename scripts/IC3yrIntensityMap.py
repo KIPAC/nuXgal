@@ -135,8 +135,13 @@ if __name__ == '__main__':
     figs.mollview_maps('countsmap', countsmap)
     figs.save_all(testfigpath, 'pdf')
 
+    Ncount_nu = np.zeros(Defaults.NEbin)
+    f_sky = 1. - len( Defaults.idx_muon[0] ) / float(Defaults.NPIXEL)
+
     mask = np.zeros(Defaults.NPIXEL)
     mask[Defaults.idx_muon] = 1.
     for i in range(Defaults.NEbin):
         test = np.ma.masked_array(countsmap[i], mask = mask)
         print (i, test.sum())
+        Ncount_nu[i] = test.sum() / f_sky
+    np.savetxt(Defaults.NUXGAL_IRF_DIR+'/neutrinoNumber_Ebin_3yr.txt', Ncount_nu)

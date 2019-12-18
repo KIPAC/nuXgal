@@ -7,6 +7,8 @@ from . import Defaults
 from . import file_utils
 from .Generator import AtmGenerator, AstroGenerator_v2
 from .file_utils import write_maps_to_fits, read_maps_from_fits
+from .WeightedAeff import WeightedAeff
+
 
 # dN/dE \propto E^alpha
 def randPowerLaw(alpha, Ntotal, emin, emax):
@@ -29,13 +31,16 @@ class EventGenerator():
         """C'tor
         """
         coszenith_path = os.path.join(Defaults.NUXGAL_IRF_DIR, 'N_coszenith{i}.txt')
-        aeff_path = os.path.join(Defaults.NUXGAL_IRF_DIR, 'Aeff{i}.fits')
         nevents_path = os.path.join(Defaults.NUXGAL_IRF_DIR, 'eventNumber_Ebin_perIC86year.txt')
+        nnu_path = os.path.join(Defaults.NUXGAL_IRF_DIR, 'neutrinoNumber_Ebin_3yr.txt')
+        #aeff_path = os.path.join(Defaults.NUXGAL_IRF_DIR, 'Aeff{i}.fits')
+        #aeff = file_utils.read_maps_from_fits(aeff_path, Defaults.NEbin)
 
-        aeff = file_utils.read_maps_from_fits(aeff_path, Defaults.NEbin)
+        aeff = WeightedAeff().exposuremap_astro
         cosz = file_utils.read_cosz_from_txt(coszenith_path, Defaults.NEbin)
 
         self.nevts = np.loadtxt(nevents_path)
+        self.nnus = np.loadtxt(nnu_path)
         self._atm_gen = AtmGenerator(Defaults.NEbin, coszenith=cosz, nevents_expected=self.nevts)
         self._astro_gen = AstroGenerator_v2(Defaults.NEbin, aeff=aeff)
         self.Aeff_max = aeff.max(1)
