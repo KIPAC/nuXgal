@@ -109,9 +109,13 @@ def main():
     Nzenith_bin = 60
     N_coszenith = np.zeros((len(Defaults.map_logE_center), Nzenith_bin))
 
-    for file in [os.path.join(icecube_data_dir, 'IC86-2012-events.txt'),
-                 os.path.join(icecube_data_dir, 'IC86-2011-events.txt'),
-                 os.path.join(icecube_data_dir, 'IC79-2010-events.txt')]:
+    #for file in [os.path.join(icecube_data_dir, 'IC86-2012-events.txt'),
+                # os.path.join(icecube_data_dir, 'IC86-2011-events.txt')]:#,
+                 #os.path.join(icecube_data_dir, 'IC79-2010-events.txt')]:
+
+    for file in [os.path.join(icecube_data_dir, 'IC79-2010-events.txt')]:
+
+
 
         AtmBG_file = np.loadtxt(file)
         _index_map_logE = np.searchsorted(Defaults.map_logE_edge, AtmBG_file[:, 1]) - 1
@@ -139,8 +143,9 @@ def main():
     eventnumber_Ebin = np.zeros(len(Defaults.map_logE_center))
     eventnumber_Ebin2 = np.zeros(len(Defaults.map_logE_center))
 
-    for file in [os.path.join(icecube_data_dir, 'IC86-2012-events.txt'),
-                 os.path.join(icecube_data_dir, 'IC86-2011-events.txt')]:
+    #for file in [os.path.join(icecube_data_dir, 'IC86-2012-events.txt'),
+    #             os.path.join(icecube_data_dir, 'IC86-2011-events.txt')]:
+    for file in [os.path.join(icecube_data_dir, 'IC79-2010-events.txt')]:
         AtmBG_file = np.loadtxt(file)
         eventnumber_Ebin += np.histogram(AtmBG_file[:, 1], Defaults.map_logE_edge)[0]
         _index_map_logE = np.searchsorted(Defaults.map_logE_edge, AtmBG_file[:, 1]) - 1

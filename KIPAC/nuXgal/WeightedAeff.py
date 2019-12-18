@@ -11,16 +11,16 @@ from . import file_utils
 
 
 
-aeffpath = os.path.join(Defaults.NUXGAL_IRF_DIR, 'IC86-2012-TabulatedAeff.txt')
 
 class WeightedAeff():
     """Weighted Effective Area class"""
 
-    def __init__(self, computeTables=False):
+    def __init__(self, year='IC86-2012', computeTables=False):
         """C'tor"""
 
-        aeff_atm_path = os.path.join(Defaults.NUXGAL_IRF_DIR, 'WeightedAeff_atm{i}.fits')
-        aeff_astro_path = os.path.join(Defaults.NUXGAL_IRF_DIR, 'WeightedAeff_astro{i}.fits')
+        self.year = year
+        aeff_atm_path = os.path.join(Defaults.NUXGAL_IRF_DIR, 'WeightedAeff_atm_' + year + '-' + '{i}.fits')
+        aeff_astro_path = os.path.join(Defaults.NUXGAL_IRF_DIR, 'WeightedAeff_astro' + year + '-' + '{i}.fits')
 
         if computeTables:
             self.exposuremap_atm = self.computeWeightedAeff(3.7)
@@ -36,7 +36,7 @@ class WeightedAeff():
 
 
     def readTables(self):
-        Aeff_file = np.loadtxt(aeffpath)
+        Aeff_file = np.loadtxt(os.path.join(Defaults.NUXGAL_IRF_DIR, self.year + '-TabulatedAeff.txt'))
         # effective area, 200 in cos zenith, 70 in E
         self.Aeff_table = Aeff_file[:, 4]
         Emin_eff = np.reshape(Aeff_file[:, 0], (70, 200))[:, 0]

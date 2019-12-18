@@ -31,8 +31,7 @@ try:
 except ImportError:
     from .Utils import MAKE_TEST_PLOTS
 
-
-
+ 
 testfigpath = os.path.join(Defaults.NUXGAL_PLOT_DIR, 'test')
 fluxmappath = os.path.join(Defaults.NUXGAL_DATA_DIR, 'IceCube3yr_fluxmap{i}.fits')
 IC3yrfluxmap = file_utils.read_maps_from_fits(fluxmappath, Defaults.NEbin)

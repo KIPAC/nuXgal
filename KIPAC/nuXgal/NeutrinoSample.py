@@ -22,9 +22,9 @@ from KIPAC.nuXgal.plot_utils import FigureDict
 class NeutrinoSample():
     """Neutrino class"""
 
-    def __init__(self):
+    def __init__(self, year='IC86-2012'):
         """C'tor"""
-        self.wAeff = WeightedAeff()
+        self.wAeff = WeightedAeff(year)
         self.countsmap = None
         self.fluxmap = None
         self.idx_mask = None
@@ -67,15 +67,17 @@ class NeutrinoSample():
     def updateMask(self, idx_mask):
         self.idx_mask = idx_mask
         self.f_sky = 1. - len( idx_mask[0] ) / float(Defaults.NPIXEL)
-        fluxmap = self.fluxmap_fullsky.copy()
-        countsmap = self.countsmap_fullsky.copy() + 0. # +0. to convert to float array
+        if self.countsmap is not None:
+            countsmap = self.countsmap_fullsky.copy() + 0. # +0. to convert to float array
+            for i in range(Defaults.NEbin):
+                countsmap[i][idx_mask] = hp.UNSEEN
+            self.countsmap = hp.ma(countsmap)
 
+        fluxmap = self.fluxmap_fullsky.copy()
+        self.fluxmap = hp.ma(fluxmap)
         for i in range(Defaults.NEbin):
             fluxmap[i][idx_mask] = hp.UNSEEN
-            countsmap[i][idx_mask] = hp.UNSEEN
-
         self.fluxmap = hp.ma(fluxmap)
-        self.countsmap = hp.ma(countsmap)
 
     def getEventCounts(self):
         return self.countsmap.sum(axis=1)
@@ -88,7 +90,11 @@ class NeutrinoSample():
         intensity = self.fluxmap.sum(axis=1) / (10.**Defaults.map_logE_center * np.log(10.) * Defaults.map_dlogE) / (dt_years * Defaults.DT_SECONDS) / (4 * np.pi * f_sky)  / 1e4 ## exposure map in m^2
         return intensity
 
-
+    def getOverdensity(self):
+        overdensity = np.zeros((Defaults.NEbin, Defaults.NPIXEL))
+        for i in range(Defaults.NEbin):
+            overdensity[i] = self.fluxmap[i] / self.fluxmap[i].mean() - 1.
+        return overdensity
 
     def getPowerSpectrum(self):
         """Compute the power spectrum of the neutirno sample"""

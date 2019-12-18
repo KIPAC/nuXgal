@@ -27,20 +27,28 @@ class EventGenerator():
 
     This can generate both atmospheric and astrophysical events
     """
-    def __init__(self):
+    def __init__(self, year='IC86-2012'):
         """C'tor
         """
-        coszenith_path = os.path.join(Defaults.NUXGAL_IRF_DIR, 'N_coszenith{i}.txt')
-        nevents_path = os.path.join(Defaults.NUXGAL_IRF_DIR, 'eventNumber_Ebin_perIC86year.txt')
-        nnu_path = os.path.join(Defaults.NUXGAL_IRF_DIR, 'neutrinoNumber_Ebin_3yr.txt')
+        coszenith_path = os.path.join(Defaults.NUXGAL_IRF_DIR, 'Ncosz'+year+'-'+'{i}.txt')
+
+        #nevents_path = os.path.join(Defaults.NUXGAL_IRF_DIR, 'eventNumber_Ebin'+str(year)+'.txt')
+        #nnu_path = os.path.join(Defaults.NUXGAL_IRF_DIR, 'neutrinoNumber_Ebin'+str(year)+'.txt')
         #aeff_path = os.path.join(Defaults.NUXGAL_IRF_DIR, 'Aeff{i}.fits')
         #aeff = file_utils.read_maps_from_fits(aeff_path, Defaults.NEbin)
+        #self.nevts = np.loadtxt(nevents_path)
+        #self.nnus = np.loadtxt(nnu_path)
 
-        aeff = WeightedAeff().exposuremap_astro
+
+        aeff = WeightedAeff(year).exposuremap_astro
         cosz = file_utils.read_cosz_from_txt(coszenith_path, Defaults.NEbin)
+        self.nevts = np.sum(cosz[:, :, 1], axis=1)
+        self.nnus = np.zeros(Defaults.NEbin)
+        index_north = np.where(cosz[0][:,0] > 0)
+        for i in range(Defaults.NEbin):
+            self.nnus[i] = np.sum(cosz[i][index_north][:,1])
 
-        self.nevts = np.loadtxt(nevents_path)
-        self.nnus = np.loadtxt(nnu_path)
+
         self._atm_gen = AtmGenerator(Defaults.NEbin, coszenith=cosz, nevents_expected=self.nevts)
         self._astro_gen = AstroGenerator_v2(Defaults.NEbin, aeff=aeff)
         self.Aeff_max = aeff.max(1)
@@ -163,12 +171,15 @@ class EventGenerator():
             return countsmap, None
 
         else:
+
             f_atm = np.zeros(Defaults.NEbin)
+
             f_diff = 1.
             for i in range(Defaults.NEbin):
                 if self.nnus[i] != 0.:
                     f_atm[i] = 1. - self.Nastro_1yr_Aeffmax[i] * f_diff / self.nnus[i]
-
+                    if f_atm[i] < 0:
+                        f_atm[i] = 0
             #print ('fraction of atm events:', f_atm)
 
 
