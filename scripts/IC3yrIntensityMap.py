@@ -65,10 +65,10 @@ def getFlux_Countmaps(year, check=False):
     index_E_Aeff_table[index_E_Aeff_table == -1] = 0 # group logE < 2 events to bin 0
     index_coszenith_Aeff_table = np.searchsorted(cosZenith_min, np.cos(np.radians(AtmBG_file[:, 6]))) - 1
 
-    #Aeff_event = Aeff_table[index_E_Aeff_table * 200 + index_coszenith_Aeff_table]
+    Aeff_event = Aeff_table[index_E_Aeff_table * 200 + index_coszenith_Aeff_table]
 
-    #Aeff_event_min = Aeff_table[index_E_Aeff_table * 200 + index_coszenith_Aeff_table]
-    #Aeff_event_max = Aeff_table[(index_E_Aeff_table+1) * 200 + index_coszenith_Aeff_table]
+
+    """
     Aeff_event = np.zeros(len(AtmBG_file))
     for ievent, iE in enumerate(index_E_Aeff_table):
         icosz = index_coszenith_Aeff_table[ievent]
@@ -86,7 +86,7 @@ def getFlux_Countmaps(year, check=False):
             z = [Aeff_table[iE * 200 + icosz], Aeff_table[(iE + 1) * 200 + icosz], Aeff_table[iE * 200 + icosz + 1], Aeff_table[(iE + 1) * 200 + icosz + 1]]
             f = interp2d(x, y, z)
             Aeff_event[ievent] = f(logEevent, cosz_event)
-
+    """
 
     if check:
         idx = 1
@@ -106,10 +106,10 @@ def getFlux_Countmaps(year, check=False):
 
     # convert event directions to pixel numbers
     # pi - zenith_south_pole = zenith_regular
+    _index_map_pixel = hp.pixelfunc.ang2pix(Defaults.NSIDE, np.radians(90. - AtmBG_file[:, 4]) , np.radians(360. - AtmBG_file[:, 3]))
     # assign random azimuthal angles
-    #_index_map_pixel = hp.pixelfunc.ang2pix(Defaults.NSIDE, np.radians(90. - AtmBG_file[:, 4]) , np.radians(360. - AtmBG_file[:, 3]))
-    randomphi = 2 * np.pi * np.random.rand(len(AtmBG_file))
-    _index_map_pixel = hp.pixelfunc.ang2pix(Defaults.NSIDE, np.radians(90. - AtmBG_file[:, 4]) , randomphi)
+    #randomphi = 2 * np.pi * np.random.rand(len(AtmBG_file))
+    #_index_map_pixel = hp.pixelfunc.ang2pix(Defaults.NSIDE, np.radians(90. - AtmBG_file[:, 4]) , randomphi)
 
     # put events into healpy maps
     for i, _ in enumerate(AtmBG_file):
@@ -141,6 +141,7 @@ def getFlux_Countmaps(year, check=False):
 
 if __name__ == '__main__':
 
+
     flux2010, counts2010 = getFlux_Countmaps('IC79-2010')
     flux2011, counts2011 = getFlux_Countmaps('IC86-2011')
     flux2012, counts2012 = getFlux_Countmaps('IC86-2012')
@@ -155,7 +156,7 @@ if __name__ == '__main__':
         fluxmap[i][Defaults.idx_muon] = hp.UNSEEN
         countsmap[i][Defaults.idx_muon] = hp.UNSEEN
 
-    check = True
+    check = False
     if check:
         figs = FigureDict()
         figs.mollview_maps('fluxmap', fluxmap)
