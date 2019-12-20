@@ -167,5 +167,5 @@ def GalaxySampleCharacters(plotWISEmap=True, plotpowerspectrum=True):
 
 
 if __name__ == '__main__':
-    CompareNeutrinoMaps(energyBin=2, plotcount=False, plotoverdensity=False, plotpowerspectrum=False, plotcostheta=True)
-    #GalaxySampleCharacters(plotWISEmap=True, plotpowerspectrum=True)
+    CompareNeutrinoMaps(energyBin=2, plotcount=True, plotoverdensity=True, plotpowerspectrum=True, plotcostheta=True)
+    GalaxySampleCharacters(plotWISEmap=True, plotpowerspectrum=True)
