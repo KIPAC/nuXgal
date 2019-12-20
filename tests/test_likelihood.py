@@ -14,8 +14,6 @@ from KIPAC.nuXgal import Defaults
 
 from KIPAC.nuXgal.EventGenerator import EventGenerator
 
-from KIPAC.nuXgal.Analyze import Analyze
-
 from KIPAC.nuXgal.Likelihood import Likelihood
 
 from KIPAC.nuXgal.file_utils import read_maps_from_fits, write_maps_to_fits
@@ -25,6 +23,9 @@ from KIPAC.nuXgal.hp_utils import vector_apply_mask, vector_apply_mask_hp
 from KIPAC.nuXgal.plot_utils import FigureDict
 
 from KIPAC.nuXgal.GalaxySample import GalaxySample
+from KIPAC.nuXgal.NeutrinoSample import NeutrinoSample
+
+from KIPAC.nuXgal.WeightedAeff import WeightedAeff
 
 try:
     from Utils import MAKE_TEST_PLOTS
@@ -34,17 +35,28 @@ except ImportError:
 
 from scipy import stats
 
-testfigpath = os.path.join(Defaults.NUXGAL_PLOT_DIR, 'test')
-N_yr = 10
+#WeightedAeff(year='IC86-2012', computeTables=True)
+#WeightedAeff(year='IC86-2011', computeTables=True)
+#WeightedAeff(year='IC79-2010', computeTables=True)
 
 #gs = GalaxySample(galaxyName='analy', computeGalaxy=True)
 #gs.generateGalaxy(N_g = 2000000)
 
-galaxyName = 'WISE'
-llh = Likelihood(N_yr=N_yr,  galaxyName=galaxyName, computeSTD=False, N_re=100)
+testfigpath = os.path.join(Defaults.NUXGAL_PLOT_DIR, 'test')
+N_yr = 1
 
-datamap = llh.eg.SyntheticData(N_yr, f_diff=0., density_nu = llh.gs.getDensity('WISE'))
-datamap = vector_apply_mask(datamap, Defaults.idx_muon, copy=False)
+testfigpath = os.path.join(Defaults.NUXGAL_PLOT_DIR, 'Fig_')
+countsmappath = os.path.join(Defaults.NUXGAL_DATA_DIR, 'IceCube3yr_countsmap{i}.fits')
+IC3yr = NeutrinoSample()
+IC3yr.inputData(countsmappath)
+IC3yr.updateMask(Defaults.idx_muon)
+
+
+galaxyName = 'WISE'
+llh = Likelihood(N_yr=N_yr,  galaxyName=galaxyName, computeSTD=False, N_re=300)
+
+#datamap = llh.eg.SyntheticData(N_yr, f_diff=0., density_nu = llh.gs.getDensity('WISE'))
+#datamap = vector_apply_mask(datamap, Defaults.idx_muon, copy=False)
 
 
 
@@ -68,12 +80,26 @@ def test_STDdependence(energyBin=2, energyBin2=0):
     fig = o_dict['fig']
     axes = o_dict['axes']
     axes.set_yscale('log')
-    axes.set_ylim(1e-8, 1e-1)
+    axes.set_ylim(1e-6, 1e-1)
 
     w_atm_std_file = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'w_atm_std.txt'))
-    #w_atm_std_file2 = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, '10yr/w_atm_std.txt'))
-    axes.plot(Defaults.ell, w_atm_std_file[0], label='new')
-    #axes.plot(Defaults.ell, w_atm_std_file2[0], label='old')
+    w_astro_std_file = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'w_astro_std.txt'))
+
+    Natm = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'Ncount_atm_after_masking.txt'))
+    Nastro = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'Ncount_astro_after_masking.txt'))
+
+
+    axes.plot(Defaults.ell, w_atm_std_file[3], lw=2, label='atm-3')
+    axes.plot(Defaults.ell, w_atm_std_file[2], label='atm-2')
+    axes.plot(Defaults.ell, w_astro_std_file[2], label='astro-2')
+    axes.plot(Defaults.ell, w_astro_std_file[3], label='astro-3')
+    axes.plot(Defaults.ell, w_atm_std_file[1] * (Natm[1] / Natm[2])**0.5, label='atm-2 from atm 1')
+    axes.plot(Defaults.ell, w_atm_std_file[1] * (Natm[1] / Natm[3])**0.5, lw=1, label='atm-3 from atm 1')
+    axes.plot(Defaults.ell, w_atm_std_file[1] * (Natm[1] / Nastro[2])**0.5, label='astro-2 from atm 1')
+    axes.plot(Defaults.ell, w_atm_std_file[1] * (Natm[1] / Nastro[3])**0.5, label='astro-3 from atm 1')
+
+
+    axes.plot(Defaults.ell, llh.w_model_f1[0], label='galaxy')
 
     fig.legend()
     figs.save_all(testfigpath, 'pdf')
@@ -91,7 +117,7 @@ def test_TS_distribution(readfile = False):
     TS_atm = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,'TS_0_'+galaxyName+'.txt'))
     TS_Gal = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,'TS_1_'+galaxyName+'.txt'))
 
-    TS_bins = np.linspace(0, 50, 101)
+    TS_bins = np.linspace(0, 100, 201)
     TS_bins_c = (TS_bins[0:-1] + TS_bins[1:]) / 2.
     dTS_bins = np.mean(TS_bins[1:] - TS_bins[0:-1])
 
@@ -114,7 +140,7 @@ def test_TS_distribution(readfile = False):
 
     axes.plot(TS_bins_c,  np.cumsum(p_atm), lw=2, label='atm')
     axes.plot(TS_bins_c,  np.cumsum(p_Gal), lw=2, label='Gal')
-    axes.plot(TS_bins_c, 0.5+ stats.chi2.cdf(TS_bins_c, 4)/2,'--', lw=2, label='chi2, dof=4')
+    axes.plot(TS_bins_c, 0.5+ stats.chi2.cdf(TS_bins_c, 1)/2,'--', lw=2, label='chi2, dof=3')
     #axes.plot(TS_bins_c,  stats.chi2.cdf(TS_bins_c, 2),'--', lw=2, label='chi2, dof=2')
 
 
@@ -124,30 +150,30 @@ def test_TS_distribution(readfile = False):
 
 
 
-def testMCMC(datamap Ncount_astro):
-    w_data = llh.cf.crossCorrelationFromCountsmap(datamap)
-    #datamap = vector_apply_mask(datamap, llh.idx_mask, copy=False)
+def testMCMC(datamap, Ncount_astro):
+    #w_data = llh.cf.crossCorrelationFromCountsmap(datamap)
+    datamap = vector_apply_mask(datamap, llh.idx_mask, copy=False)
     lmin = 50
-    w_data = llh.cf.crossCorrelationFromCountsmap_mask(datamap, llh.gs.overdensity, llh.idx_mask)
+    ns = NeutrinoSample()
+    w_data = ns.getCrossCorrelation_countsmap(datamap, llh.gs.overdensity, llh.idx_mask)
     Ncount = np.sum(datamap, axis=1)
-    Ebinmax = np.min([np.where(Ncount != 0)[0][-1]+1, 5])
+    Ebinmin = 1
+    Ebinmax = 4 # np.min([np.where(Ncount != 0)[0][-1]+1, 5])
     print (Ncount)
-    print ((llh.minimize__lnL(w_data, Ncount, lmin=lmin, Ebinmin=0, Ebinmax=Ebinmax))[0])
-    print ((llh.minimize__lnL(w_data, Ncount, lmin=lmin, Ebinmin=0, Ebinmax=Ebinmax))[-1])
+    print ((llh.minimize__lnL(w_data, Ncount, lmin=lmin, Ebinmin=Ebinmin, Ebinmax=Ebinmax))[0])
+    print ((llh.minimize__lnL(w_data, Ncount, lmin=lmin, Ebinmin=Ebinmin, Ebinmax=Ebinmax))[-1])
 
 
-    llh.runMCMC(w_data, Ncount, lmin=lmin, Ebinmin=0, Ebinmax=Ebinmax, Nwalker=640, Nstep=500)
+    llh.runMCMC(w_data, Ncount, lmin=lmin, Ebinmin=Ebinmin, Ebinmax=Ebinmax, Nwalker=640, Nstep=500)
 
 
-    f_astro = Ncount_astro / Ncount
 
-    print (f_astro)
-    ndim = Ebinmax
+    ndim = Ebinmax - Ebinmin
     labels = []
     truths = []
     for i in range(ndim):
         labels.append('f' + str(i))
-        truths.append(f_astro[i])
+        truths.append(Ncount_astro[i])
     llh.plotMCMCchain(ndim, labels, truths)
 
 
@@ -157,26 +183,30 @@ if __name__ == '__main__':
     #test_STDdependence(2, 0)
 
     #test_TS_distribution(False)
+    #exit(0)
+    #datamap = EventGenerator().SyntheticData(N_yr, f_diff=1., density_nu = llh.gs.density)
 
-    #datamap = llh.eg.SyntheticData(N_yr, f_diff=1., density_nu = llh.gs.density)
     f_atm = np.zeros(Defaults.NEbin)
-    f_diff = 1.
+    f_diff = 1.0
+    eg = EventGenerator()
     for i in range(Defaults.NEbin):
-        if llh.eg.nevts[i] != 0.:
-            f_atm[i] = 1. - llh.eg.Nastro_1yr_Aeffmax[i] * f_diff / llh.eg.nevts[i]
+        if eg.nevts[i] != 0.:
+            f_atm[i] = 1. - eg.Nastro_1yr_Aeffmax[i] * f_diff / eg.nevts[i]
+            #print (eg.Nastro_1yr_Aeffmax[i] , eg.nevts[i])
     # generate atmospheric eventmaps
-    Natm = np.random.poisson(llh.eg.nevts * N_yr * f_atm)
-    llh.eg._atm_gen.nevents_expected.set_value(Natm, clear_parent=False)
-    atm_map = llh.eg._atm_gen.generate_event_maps(1)[0]
+    Natm = np.random.poisson(eg.nevts * N_yr * f_atm)
+    eg._atm_gen.nevents_expected.set_value(Natm, clear_parent=False)
+    atm_map = eg._atm_gen.generate_event_maps(1)[0]
 
     # generate astro maps
-    Nastro = np.random.poisson(llh.eg.Nastro_1yr_Aeffmax * N_yr * f_diff)
-    astro_map = llh.eg.astroEvent_galaxy(Nastro, llh.gs.density)
+    Nastro = np.random.poisson(eg.Nastro_1yr_Aeffmax * N_yr * f_diff)
+    astro_map = eg.astroEvent_galaxy(Nastro, llh.gs.density)
 
-    datamap = atm_map + astro_map
+    #datamap = atm_map + astro_map
     astro_ = vector_apply_mask(astro_map, llh.idx_mask, copy=False)
     Ncount_astro = np.sum(astro_, axis=1)
 
+    datamap = IC3yr.countsmap
 
     testMCMC(datamap, Ncount_astro)
     #showDataModel(datamap, energyBin=3)

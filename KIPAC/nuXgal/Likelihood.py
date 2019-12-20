@@ -11,11 +11,10 @@ from scipy.optimize import minimize
 
 #from .Utilityfunc import
 from .EventGenerator import EventGenerator
-from .Analyze import Analyze
 from . import Defaults
 from .GalaxySample import GalaxySample
 from .hp_utils import vector_apply_mask
-
+from .NeutrinoSample import NeutrinoSample
 
 class Likelihood():
     """Class to evaluate the likelihood for a particular model of neutrino galaxy correlation"""
@@ -35,7 +34,6 @@ class Likelihood():
         """
 
         self.gs = GalaxySample(galaxyName)
-        self.cf = Analyze()
         self.anafastMask()
 
         # scaled mean and std
@@ -57,10 +55,13 @@ class Likelihood():
                                                       'Ncount_atm_after_masking.txt'))
 
         self.w_std_square0 = np.zeros((Defaults.NEbin, Defaults.NCL))
-        for i in range(3):
-            self.w_std_square0[i] = self.w_atm_std_square[0] * self.Ncount_atm[0]
-        for i in [3, 4]:
-            self.w_std_square0[i] = self.w_atm_std_square[3] * self.Ncount_atm[3]
+        for i in range(Defaults.NEbin):
+            self.w_std_square0[i] = self.w_atm_std_square[1] * self.Ncount_atm[1]
+
+        #for i in range(3):
+        #    self.w_std_square0[i] = self.w_atm_std_square[0] * self.Ncount_atm[0]
+        #for i in [3, 4]:
+        #    self.w_std_square0[i] = self.w_atm_std_square[3] * self.Ncount_atm[3]
 
     def anafastMask(self):
         """Generate a mask that merges the neutrino selection mask
@@ -76,7 +77,7 @@ class Likelihood():
 
     def calculate_w_mean(self):
         """Compute the mean cross corrleations assuming f=1"""
-        overdensity_g = self.gs.overdensity.copy()
+        overdensity_g = self.gs.overdensity.data.copy()
         overdensity_g[self.idx_mask] = hp.UNSEEN
         w_mean = hp.anafast(overdensity_g)
         self.w_model_f1 = np.zeros((Defaults.NEbin, Defaults.NCL))
@@ -99,16 +100,31 @@ class Likelihood():
 
         w_cross = np.zeros((N_re, Defaults.NEbin, 3 * Defaults.NSIDE))
         Ncount = np.zeros(Defaults.NEbin)
-        eg = EventGenerator()
+        ns = NeutrinoSample()
+
+        #eg = EventGenerator()
+        eg_2010 = EventGenerator('IC79-2010')
+        eg_2011 = EventGenerator('IC86-2011')
+        eg_2012 = EventGenerator('IC86-2012')
 
         for iteration in np.arange(N_re):
             print("iter ", iteration)
-            eventnumber_Ebin = np.random.poisson(eg.nevts * N_yr)
-            eg._atm_gen.nevents_expected.set_value(eventnumber_Ebin, clear_parent=False)
-            eventmap_atm = eg._atm_gen.generate_event_maps(1)[0]
+
+            #Nastro = np.random.poisson(eg.Nastro_1yr_Aeffmax * N_yr * 1.)
+            #eventmap_atm = eg.astroEvent_galaxy(Nastro, self.gs.density)
+
+            #eventnumber_Ebin = np.random.poisson(eg.nevts * N_yr)
+            #eg._atm_gen.nevents_expected.set_value(eventnumber_Ebin, clear_parent=False)
+            #eventmap_atm = eg._atm_gen.generate_event_maps(1)[0]
+
+            eg_2010._atm_gen.nevents_expected.set_value(np.random.poisson(eg_2010.nevts * N_yr), clear_parent=False)
+            eg_2011._atm_gen.nevents_expected.set_value(np.random.poisson(eg_2011.nevts * N_yr), clear_parent=False)
+            eg_2012._atm_gen.nevents_expected.set_value(np.random.poisson(eg_2012.nevts * N_yr), clear_parent=False)
+            eventmap_atm = eg_2010._atm_gen.generate_event_maps(1)[0] + eg_2011._atm_gen.generate_event_maps(1)[0] + eg_2012._atm_gen.generate_event_maps(1)[0]
+
             # first mask makes counts in masked region zero, for correct counting of event number. Second mask applies to healpy cross correlation calculation.
             eventmap_atm = vector_apply_mask(eventmap_atm, self.idx_mask, copy=False)
-            w_cross[iteration] = self.cf.crossCorrelationFromCountsmap_mask(eventmap_atm, self.gs.overdensity, self.idx_mask)
+            w_cross[iteration] = ns.getCrossCorrelation_countsmap(eventmap_atm, self.gs.overdensity, self.idx_mask)
             Ncount = Ncount + np.sum(eventmap_atm, axis=1)
 
         self.w_atm_mean = np.mean(w_cross, axis=0)
@@ -207,14 +223,20 @@ class Likelihood():
             The array of TS values
         """
         eg = EventGenerator()
+        #eg_2010 = EventGenerator('IC79-2010')
+        #eg_2011 = EventGenerator('IC86-2011')
+        #eg_2012 = EventGenerator('IC86-2012')
+        ns = NeutrinoSample()
         TS_array = np.zeros(N_re)
+        Ebinmin = 1
         for i in range(N_re):
             datamap = eg.SyntheticData(N_yr, f_diff=f_diff, density_nu=self.gs.density)
+            #datamap = eg_2010.SyntheticData(N_yr, f_diff=f_diff, density_nu=self.gs.density) + eg_2011.SyntheticData(N_yr, f_diff=f_diff, density_nu=self.gs.density) + eg_2012.SyntheticData(N_yr, f_diff=f_diff, density_nu=self.gs.density)
             datamap = vector_apply_mask(datamap, self.idx_mask, copy=False)
-            w_data = self.cf.crossCorrelationFromCountsmap_mask(datamap, self.gs.overdensity, self.idx_mask)
+            w_data = ns.getCrossCorrelation_countsmap(datamap, self.gs.overdensity, self.idx_mask)
             Ncount = np.sum(datamap, axis=1)
-            Ebinmax = np.min([np.where(Ncount != 0)[0][-1]+1, 5])
-            minimizeResult = (self.minimize__lnL(w_data, Ncount, lmin, 0, Ebinmax))
+            Ebinmax = 4 # np.min([np.where(Ncount != 0)[0][-1]+1, 5])
+            minimizeResult = (self.minimize__lnL(w_data, Ncount, lmin, Ebinmin, Ebinmax))
             print(i, Ncount, minimizeResult[0], minimizeResult[-1])
             TS_array[i] = minimizeResult[-1]
         if writeData:
@@ -235,7 +257,7 @@ class Likelihood():
         value : `float`
             The log of the prior
         """
-        if np.min(f) > 0. and np.max(f) < 1.5:
+        if np.min(f) > 0. and np.max(f) < 2.:
             return 0.
         return -np.inf
 

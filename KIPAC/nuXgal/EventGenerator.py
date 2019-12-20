@@ -168,7 +168,7 @@ class EventGenerator():
             Natm = np.random.poisson(self.nevts * N_yr)
             self._atm_gen.nevents_expected.set_value(Natm, clear_parent=False)
             countsmap = self._atm_gen.generate_event_maps(1)[0]
-            return countsmap, None
+            return countsmap
 
         else:
 
@@ -184,7 +184,7 @@ class EventGenerator():
 
 
             # generate atmospheric eventmaps
-            Natm = np.random.poisson(self.nevts * N_yr * f_atm)
+            Natm = np.random.poisson(self.nevts * N_yr )# * f_atm)
             self._atm_gen.nevents_expected.set_value(Natm, clear_parent=False)
             atm_map = self._atm_gen.generate_event_maps(1)[0]
 
@@ -192,4 +192,4 @@ class EventGenerator():
             Nastro = np.random.poisson(self.Nastro_1yr_Aeffmax * N_yr * f_diff)
             astro_map = self.astroEvent_galaxy(Nastro, density_nu)
 
-            return atm_map, astro_map
+            return (atm_map + astro_map)

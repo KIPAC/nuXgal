@@ -20,7 +20,7 @@ class WeightedAeff():
 
         self.year = year
         aeff_atm_path = os.path.join(Defaults.NUXGAL_IRF_DIR, 'WeightedAeff_atm_' + year + '-' + '{i}.fits')
-        aeff_astro_path = os.path.join(Defaults.NUXGAL_IRF_DIR, 'WeightedAeff_astro' + year + '-' + '{i}.fits')
+        aeff_astro_path = os.path.join(Defaults.NUXGAL_IRF_DIR, 'WeightedAeff_astro_' + year + '-' + '{i}.fits')
 
         if computeTables:
             self.exposuremap_atm = self.computeWeightedAeff(3.7)

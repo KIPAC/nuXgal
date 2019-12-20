@@ -40,8 +40,12 @@ class GalaxySample():
 
         self.galaxyName = galaxyName
         self.initiateGalaxySample()
-        self.overdensity = Utilityfunc.overdensityMap_mask(self.galaxymap, self.idx_galaxymask)
         self.density = self.galaxymap / np.sum(self.galaxymap)
+        _galaxymap = self.galaxymap.copy()
+        _galaxymap[self.idx_galaxymask] = hp.UNSEEN
+        _galaxymap = hp.ma(_galaxymap)
+        self.overdensity = _galaxymap / np.mean(_galaxymap) - 1.
+
 
 
     def initiateGalaxySample(self):
@@ -52,6 +56,7 @@ class GalaxySample():
             self.galaxymap = hp.fitsfunc.read_map(galaxymap_path, verbose=False)
             c_icrs = SkyCoord(ra=(2 * np.pi - Defaults.exposuremap_phi) * u.radian, dec=(np.pi/2 - Defaults.exposuremap_theta)*u.radian, frame='icrs')
             self.idx_galaxymask = np.where(np.abs(c_icrs.galactic.b.degree) < 10)
+
 
 
         if self.galaxyName == 'analy':
