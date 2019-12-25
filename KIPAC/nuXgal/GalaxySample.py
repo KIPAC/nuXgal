@@ -14,7 +14,6 @@ from astropy.coordinates import SkyCoord
 
 from . import Defaults
 
-from . import Utilityfunc
 
 
 class GalaxySample():
@@ -45,6 +44,7 @@ class GalaxySample():
         _galaxymap[self.idx_galaxymask] = hp.UNSEEN
         _galaxymap = hp.ma(_galaxymap)
         self.overdensity = _galaxymap / np.mean(_galaxymap) - 1.
+        self.f_sky = 1. - len(self.idx_galaxymask[0]) / float(Defaults.NPIXEL)
 
 
 
@@ -54,9 +54,8 @@ class GalaxySample():
             #WISE-2MASS galaxy sample map based on ~5M galaixes
             galaxymap_path = os.path.join(Defaults.NUXGAL_ANCIL_DIR, 'WISE_galaxymap.fits')
             self.galaxymap = hp.fitsfunc.read_map(galaxymap_path, verbose=False)
-            c_icrs = SkyCoord(ra=(2 * np.pi - Defaults.exposuremap_phi) * u.radian, dec=(np.pi/2 - Defaults.exposuremap_theta)*u.radian, frame='icrs')
+            c_icrs = SkyCoord(ra=Defaults.exposuremap_phi * u.radian, dec=(np.pi/2 - Defaults.exposuremap_theta)*u.radian, frame='icrs')
             self.idx_galaxymask = np.where(np.abs(c_icrs.galactic.b.degree) < 10)
-
 
 
         if self.galaxyName == 'analy':
@@ -66,14 +65,6 @@ class GalaxySample():
             analy_galaxymap_path = os.path.join(Defaults.NUXGAL_ANCIL_DIR, 'analy_galaxymap.fits')
             self.galaxymap = hp.fitsfunc.read_map(analy_galaxymap_path, verbose=False)
             self.idx_galaxymask = np.where(False)
-
-        if self.galaxyName == 'nonGal':
-            density_nonGal = hp.sphtfunc.synfast(self.analyCL * 0.6, Defaults.NSIDE, verbose=False)
-            density_nonGal = np.exp(density_nonGal)
-            #self.density = density_nonGal / density_nonGal.sum()
-
-        if self.galaxyName == 'flat':
-            self.galaxymap = np.random.poisson(10., size=Defaults.NPIXEL)
 
 
 

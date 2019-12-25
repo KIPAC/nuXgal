@@ -7,18 +7,55 @@ import emcee
 import corner
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
+import matplotlib
+from scipy.stats import norm, distributions
 
 
-#from .Utilityfunc import
 from .EventGenerator import EventGenerator
 from . import Defaults
 from .GalaxySample import GalaxySample
-from .hp_utils import vector_apply_mask
 from .NeutrinoSample import NeutrinoSample
+from .FermipyCastro import LnLFn
+from .WeightedAeff import WeightedAeff
+
+def significance(chi_square, dof):
+    """Construct an significance for a chi**2 distribution
+
+    Parameters
+    ----------
+    chi_square : `float`
+    dof : `int`
+
+    Returns
+    -------
+    significance : `float`
+    """
+    p_value = distributions.chi2.sf(chi_square, dof-1)
+    significance_twoTailNorm = norm.isf(p_value/2)
+    return significance_twoTailNorm
+
+
+def significance_from_chi(chi):
+    """Construct an significance set of chi values
+
+    Parameters
+    ----------
+    chi : `array`
+    dof : `int`
+
+    Returns
+    -------
+    significance : `float`
+    """
+    chi2 = chi*chi
+    dof = len(chi2)
+    return significance(np.sum(chi2), dof)
+
+
 
 class Likelihood():
     """Class to evaluate the likelihood for a particular model of neutrino galaxy correlation"""
-    def __init__(self, N_yr, galaxyName, computeSTD, N_re=40):
+    def __init__(self, N_yr, galaxyName, computeSTD, Ebinmin, Ebinmax, lmin):
         """C'tor
 
         Parameters
@@ -29,39 +66,36 @@ class Likelihood():
             Name of the Galaxy sample
         computeSTD : `bool`
             If true, compute the standard deviation for a number of trials
-        N_re : `int`
-           Number of realizations to use to compute the models
+        Ebinmin, Ebinmax : `int`
+           indices of energy bins between which likelihood is computed
+        lmin:
+            minimum of l to be taken into account in likelihood
         """
 
         self.gs = GalaxySample(galaxyName)
         self.anafastMask()
-
+        self.Ebinmin = Ebinmin
+        self.Ebinmax = Ebinmax # np.min([np.where(Ncount != 0)[0][-1]+1, 5])
+        self.lmin = lmin
         # scaled mean and std
         self.calculate_w_mean()
-
+        self.N_yr = N_yr
 
         # compute or load w_atm distribution
         if computeSTD:
-            self.computeAtmophericEventDistribution(N_yr, N_re, True)
+            self.computeAtmophericEventDistribution(N_re=300, writeMap=True)
         else:
-            w_atm_mean_file = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,
-                                                      'w_atm_mean.txt'))
-            self.w_atm_mean = w_atm_mean_file.reshape((Defaults.NEbin, Defaults.NCL))
-            w_atm_std_file = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,
-                                                     'w_atm_std.txt'))
+            #w_atm_mean_file = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,  'w_atm_mean' + '_' + str(self.N_yr) + '.txt'))
+            #self.w_atm_mean = w_atm_mean_file.reshape((Defaults.NEbin, Defaults.NCL))
+            w_atm_std_file = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,  'w_atm_std' + '_' + str(self.N_yr) + '.txt'))
             self.w_atm_std = w_atm_std_file.reshape((Defaults.NEbin, Defaults.NCL))
             self.w_atm_std_square = self.w_atm_std ** 2
-            self.Ncount_atm = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,
-                                                      'Ncount_atm_after_masking.txt'))
+            self.Ncount_atm = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,  'Ncount_atm_after_masking' + '_' + str(self.N_yr) + '.txt'))
 
         self.w_std_square0 = np.zeros((Defaults.NEbin, Defaults.NCL))
         for i in range(Defaults.NEbin):
             self.w_std_square0[i] = self.w_atm_std_square[1] * self.Ncount_atm[1]
 
-        #for i in range(3):
-        #    self.w_std_square0[i] = self.w_atm_std_square[0] * self.Ncount_atm[0]
-        #for i in [3, 4]:
-        #    self.w_std_square0[i] = self.w_atm_std_square[3] * self.Ncount_atm[3]
 
     def anafastMask(self):
         """Generate a mask that merges the neutrino selection mask
@@ -73,25 +107,24 @@ class Likelihood():
         # add the mask of galaxy sample
         mask_nu[self.gs.idx_galaxymask] = 1.
         self.idx_mask = np.where(mask_nu != 0)
+        self.f_sky = 1. - len(self.idx_mask[0]) / float(Defaults.NPIXEL)
 
 
     def calculate_w_mean(self):
         """Compute the mean cross corrleations assuming f=1"""
         overdensity_g = self.gs.overdensity.data.copy()
         overdensity_g[self.idx_mask] = hp.UNSEEN
-        w_mean = hp.anafast(overdensity_g)
+        w_mean = hp.anafast(overdensity_g) / self.f_sky
         self.w_model_f1 = np.zeros((Defaults.NEbin, Defaults.NCL))
         for i in range(Defaults.NEbin):
             self.w_model_f1[i] = w_mean
 
 
-    def computeAtmophericEventDistribution(self, N_yr, N_re, writeMap):
+    def computeAtmophericEventDistribution(self, N_re, writeMap):
         """Compute the cross correlation distribution for Atmopheric event
 
         Parameters
         ----------
-        N_yr : `float`
-            Number of years to simulate if computing the models
         N_re : `int`
            Number of realizations to use to compute the models
         writeMap : `bool`
@@ -99,13 +132,14 @@ class Likelihood():
         """
 
         w_cross = np.zeros((N_re, Defaults.NEbin, 3 * Defaults.NSIDE))
-        Ncount = np.zeros(Defaults.NEbin)
+        Ncount_av = np.zeros(Defaults.NEbin)
         ns = NeutrinoSample()
-
-        #eg = EventGenerator()
-        eg_2010 = EventGenerator('IC79-2010')
-        eg_2011 = EventGenerator('IC86-2011')
-        eg_2012 = EventGenerator('IC86-2012')
+        if self.N_yr != 3:
+            eg = EventGenerator()
+        else:
+            eg_2010 = EventGenerator('IC79-2010')
+            eg_2011 = EventGenerator('IC86-2011')
+            eg_2012 = EventGenerator('IC86-2012')
 
         for iteration in np.arange(N_re):
             print("iter ", iteration)
@@ -113,77 +147,106 @@ class Likelihood():
             #Nastro = np.random.poisson(eg.Nastro_1yr_Aeffmax * N_yr * 1.)
             #eventmap_atm = eg.astroEvent_galaxy(Nastro, self.gs.density)
 
-            #eventnumber_Ebin = np.random.poisson(eg.nevts * N_yr)
-            #eg._atm_gen.nevents_expected.set_value(eventnumber_Ebin, clear_parent=False)
-            #eventmap_atm = eg._atm_gen.generate_event_maps(1)[0]
+            if self.N_yr != 3:
+                eventnumber_Ebin = np.random.poisson(eg.nevts * self.N_yr)
+                eg._atm_gen.nevents_expected.set_value(eventnumber_Ebin, clear_parent=False)
+                eventmap_atm = eg._atm_gen.generate_event_maps(1)[0]
 
-            eg_2010._atm_gen.nevents_expected.set_value(np.random.poisson(eg_2010.nevts * N_yr), clear_parent=False)
-            eg_2011._atm_gen.nevents_expected.set_value(np.random.poisson(eg_2011.nevts * N_yr), clear_parent=False)
-            eg_2012._atm_gen.nevents_expected.set_value(np.random.poisson(eg_2012.nevts * N_yr), clear_parent=False)
-            eventmap_atm = eg_2010._atm_gen.generate_event_maps(1)[0] + eg_2011._atm_gen.generate_event_maps(1)[0] + eg_2012._atm_gen.generate_event_maps(1)[0]
+            else:
+                eg_2010._atm_gen.nevents_expected.set_value(np.random.poisson(eg_2010.nevts * 1.), clear_parent=False)
+                eg_2011._atm_gen.nevents_expected.set_value(np.random.poisson(eg_2011.nevts * 1.), clear_parent=False)
+                eg_2012._atm_gen.nevents_expected.set_value(np.random.poisson(eg_2012.nevts * 1.), clear_parent=False)
+                eventmap_atm = eg_2010._atm_gen.generate_event_maps(1)[0] + eg_2011._atm_gen.generate_event_maps(1)[0] + eg_2012._atm_gen.generate_event_maps(1)[0]
+
+            ns.inputCountsmap(eventmap_atm)
+            ns.updateMask(self.idx_mask)
+            w_cross[iteration] = ns.getCrossCorrelation(self.gs.overdensity)
+            Ncount_av = Ncount_av + ns.getEventCounts()
+
 
             # first mask makes counts in masked region zero, for correct counting of event number. Second mask applies to healpy cross correlation calculation.
-            eventmap_atm = vector_apply_mask(eventmap_atm, self.idx_mask, copy=False)
-            w_cross[iteration] = ns.getCrossCorrelation_countsmap(eventmap_atm, self.gs.overdensity, self.idx_mask)
-            Ncount = Ncount + np.sum(eventmap_atm, axis=1)
+            #eventmap_atm = vector_apply_mask(eventmap_atm, self.idx_mask, copy=False)
+            #w_cross[iteration] = ns.getCrossCorrelation_countsmap(eventmap_atm, self.gs.overdensity, self.idx_mask)
+            #Ncount = Ncount + np.sum(eventmap_atm, axis=1)
 
         self.w_atm_mean = np.mean(w_cross, axis=0)
         self.w_atm_std = np.std(w_cross, axis=0)
-        self.Ncount_atm = Ncount / float(N_re)
+        self.Ncount_atm = Ncount_av / float(N_re)
 
 
         self.w_atm_std_square = self.w_atm_std ** 2
         if writeMap:
-            np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'w_atm_mean.txt'),
-                       self.w_atm_mean)
-            np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'w_atm_std.txt'),
-                       self.w_atm_std)
-            np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'Ncount_atm_after_masking.txt'),
-                       self.Ncount_atm)
+            #np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'w_atm_mean' + '_' + str(self.N_yr) + '.txt'), self.w_atm_mean)
+            np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'w_atm_std' + '_' + str(self.N_yr) + '.txt'), self.w_atm_std)
+            np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'Ncount_atm_after_masking' + '_' + str(self.N_yr) + '.txt'), self.Ncount_atm)
+
+
+    def inputData(self, ns):
+        """Input data
+
+        Parameters
+        ----------
+        ns : `NeutrinoSample`
+            A NeutrinoSample Object
+
+        Returns
+        -------
+        None
+        """
+        ns.updateMask(self.idx_mask)
+        self.w_data = ns.getCrossCorrelation(self.gs.overdensity)
+        self.Ncount = ns.getEventCounts()
 
 
 
+    def log_likelihood_Ebin(self, f, energyBin):
+        """Compute the log of the likelihood for a particular model in given energy bin
 
-    def log_likelihood(self, f, w_data, Ncount, lmin, Ebinmin, Ebinmax):
+        Parameters
+        ----------
+        f : `float`
+            The fraction of neutrino events correlated with the Galaxy sample
+        energyBin: `index`
+            The energy bin where likelihood is computed
+        Returns
+        -------
+        logL : `float`
+            The log likelihood, computed as sum_l (data_l - f * model_mean_l) /  model_std_l
+        """
+        w_model_mean = self.w_model_f1[energyBin] * f
+        w_model_std_square = self.w_std_square0[energyBin] / self.Ncount[energyBin]
+
+        lnL_le = - (self.w_data[energyBin] - w_model_mean) ** 2 / w_model_std_square / 2.
+        return np.sum(lnL_le[self.lmin:])
+
+
+    def log_likelihood(self, f):
         """Compute the log of the likelihood for a particular model
 
         Parameters
         ----------
         f : `float`
             The fraction of neutrino events correlated with the Galaxy sample
-        w_data : `np.array`
-            The cross-correlation coefficients
-        Ncount : `np.array`
-        lmin : `int`
-            Minimum l to use in computing likelihood
-        Ebinmin : `int`
-        Ebinmax : `int`
 
         Returns
         -------
         logL : `float`
             The log likelihood, computed as sum_l (data_l - f * model_mean_l) /  model_std_l
         """
-        w_model_mean = (self.w_model_f1[Ebinmin : Ebinmax].T * f).T
-        w_model_std_square = (self.w_std_square0[Ebinmin : Ebinmax].T / Ncount[Ebinmin : Ebinmax]).T
+        w_model_mean = (self.w_model_f1[self.Ebinmin : self.Ebinmax].T * f).T
+        w_model_std_square = (self.w_std_square0[self.Ebinmin : self.Ebinmax].T / self.Ncount[self.Ebinmin : self.Ebinmax]).T
+        lnL_le = - (self.w_data[self.Ebinmin : self.Ebinmax] - w_model_mean) ** 2 / w_model_std_square / 2.
+        return np.sum(lnL_le[:, self.lmin:])
 
-        lnL_le = - (w_data[Ebinmin : Ebinmax] - w_model_mean) ** 2 / w_model_std_square / 2.
-        return np.sum(lnL_le[:, lmin:])
 
-    def minimize__lnL(self, w_data, Ncount, lmin, Ebinmin, Ebinmax):
+
+    def minimize__lnL(self):
         """Minimize the log-likelihood
 
         Parameters
         ----------
         f : `float`
             The fraction of neutrino events correlated with the Galaxy sample
-        w_data : `np.array`
-            The cross-correlation coefficients
-        Ncount : `np.array`
-        lmin : `int`
-            Minimum l to use in computing likelihood
-        Ebinmin : `int`
-        Ebinmax : `int`
 
         Returns
         -------
@@ -192,28 +255,24 @@ class Likelihood():
         TS : `float`
             The Test Statistic, computed as 2 * logL_x - logL_0
         """
-        len_f = Ebinmax - Ebinmin
+        len_f = self.Ebinmax - self.Ebinmin
         nll = lambda *args: -self.log_likelihood(*args)
         initial = 0.5 + 0.1 * np.random.randn(len_f)
-        soln = minimize(nll, initial, args=(w_data, Ncount, lmin, Ebinmin, Ebinmax), bounds=[(0, 4)] * (len_f))
-        return soln.x, (self.log_likelihood(soln.x, w_data, Ncount, lmin, Ebinmin, Ebinmax) -\
-                            self.log_likelihood(np.zeros(len_f), w_data, Ncount, lmin, Ebinmin, Ebinmax)) * 2
+        soln = minimize(nll, initial, bounds=[(0, 4)] * (len_f))
+        return soln.x, (self.log_likelihood(soln.x) -\
+                            self.log_likelihood(np.zeros(len_f))) * 2
 
-    def TS_distribution(self, N_re, N_yr, lmin, f_diff, galaxyName, writeData=True):
+
+
+    def TS_distribution(self, N_re, f_diff, astroModel='numu', writeData=True):
         """Generate a Test Statistic distribution for simulated trials
 
         Parameters
         ----------
         N_re : `int`
            Number of realizations to use
-        N_yr : `float`
-            Number of years to simulate
-        lmin : `int`
-            Minimum l to use in computing likelihood
         f_diff : `float`
             Input value for signal fraction
-        galaxyName : `str`
-            Name of Galaxy sample
         writeData : `bool`
             Write the TS distribution to a text file
 
@@ -222,26 +281,107 @@ class Likelihood():
         TS_array : `np.array`
             The array of TS values
         """
-        eg = EventGenerator()
-        #eg_2010 = EventGenerator('IC79-2010')
-        #eg_2011 = EventGenerator('IC86-2011')
-        #eg_2012 = EventGenerator('IC86-2012')
+        if self.N_yr != 3:
+            eg = EventGenerator(year='IC86-2012', astroModel=astroModel)
+
+        else:
+            eg_2010 = EventGenerator('IC79-2010', astroModel=astroModel)
+            eg_2011 = EventGenerator('IC86-2011', astroModel=astroModel)
+            eg_2012 = EventGenerator('IC86-2012', astroModel=astroModel)
         ns = NeutrinoSample()
         TS_array = np.zeros(N_re)
-        Ebinmin = 1
         for i in range(N_re):
-            datamap = eg.SyntheticData(N_yr, f_diff=f_diff, density_nu=self.gs.density)
-            #datamap = eg_2010.SyntheticData(N_yr, f_diff=f_diff, density_nu=self.gs.density) + eg_2011.SyntheticData(N_yr, f_diff=f_diff, density_nu=self.gs.density) + eg_2012.SyntheticData(N_yr, f_diff=f_diff, density_nu=self.gs.density)
-            datamap = vector_apply_mask(datamap, self.idx_mask, copy=False)
-            w_data = ns.getCrossCorrelation_countsmap(datamap, self.gs.overdensity, self.idx_mask)
-            Ncount = np.sum(datamap, axis=1)
-            Ebinmax = 4 # np.min([np.where(Ncount != 0)[0][-1]+1, 5])
-            minimizeResult = (self.minimize__lnL(w_data, Ncount, lmin, Ebinmin, Ebinmax))
-            print(i, Ncount, minimizeResult[0], minimizeResult[-1])
+            if self.N_yr != 3:
+                datamap = eg.SyntheticData(self.N_yr, f_diff=f_diff, density_nu=self.gs.density)
+            else:
+                datamap = eg_2010.SyntheticData(1., f_diff=f_diff, density_nu=self.gs.density) + eg_2011.SyntheticData(1., f_diff=f_diff, density_nu=self.gs.density) + eg_2012.SyntheticData(1., f_diff=f_diff, density_nu=self.gs.density)
+            ns.inputCountsmap(datamap)
+            self.inputData(ns)
+            minimizeResult = (self.minimize__lnL())
+            print(i, self.Ncount, minimizeResult[0], minimizeResult[-1])
             TS_array[i] = minimizeResult[-1]
         if writeData:
-            np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'TS_'+str(f_diff)+'_'+galaxyName+'.txt'), TS_array)
+            if f_diff == 0:
+                TSpath = os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'TS_'+str(f_diff)+'_'+self.gs.galaxyName+'_'+str(self.N_yr)+'.txt')
+            else:
+                TSpath = os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'TS_'+str(f_diff)+'_'+self.gs.galaxyName+'_'+str(self.N_yr)+'_'+astroModel+'.txt')
+            np.savetxt(TSpath, TS_array)
         return TS_array
+
+
+
+    def plotCastro(self, TS_threshold=4, coloralphalimit=0.01, colorfbin=500):
+
+        plt.figure(figsize = (8,6))
+        font = { 'family': 'Arial', 'weight' : 'normal', 'size'   : 18}
+        legendfont = {'fontsize' : 18, 'frameon' : False}
+        matplotlib.rc('font', **font)
+        matplotlib.rc('legend', **legendfont)
+        plt.ylabel('$E^2 dN/dE\,[\mathrm{GeV\,cm^{-2}\,s^{-1}}]$')
+        plt.xlabel('$\log$ (E [GeV])')
+        #plt.ylim(1e-3, 10) # for f_astro
+        plt.ylim(1e-9, 1e-5) # for flux
+        plt.xlim(2, 7)
+        plt.yscale('log')
+
+        #cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", [ "lightgrey", "mediumslateblue", "skyblue"]) #["white",  "dimgray",  "mediumslateblue",  "cyan", "yellow", "red"]
+        cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", [ "dimgrey", "olive", "forestgreen","yellowgreen"]) #["white",  "dimgray",  "mediumslateblue",  "cyan", "yellow", "red"]
+        #cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", [ "dimgrey", "royalblue", "skyblue"]) #["white",  "dimgray",  "mediumslateblue",  "cyan", "yellow", "red"]
+
+
+        bestfit_f, _ = self.minimize__lnL()
+
+        # common x for castro object initialization
+        f_Ebin = np.linspace(0, 2, 1000)
+
+
+
+        for idx_E in range(self.Ebinmin, self.Ebinmax):
+            # exposuremap assuming alpha = 2.28 (numu) to convert bestfit f_astro to flux
+            exposuremap_E = WeightedAeff('IC86-2012', 2.28).exposuremap[idx_E].copy()
+            exposuremap_E[self.idx_mask] = hp.UNSEEN
+            exposuremap_E = hp.ma(exposuremap_E)
+            factor_f2flux = self.Ncount[idx_E] / (exposuremap_E.mean() * 1e4 * Defaults.DT_SECONDS * self.N_yr * 4 * np.pi * self.f_sky * Defaults.map_dlogE * np.log(10.)) * Defaults.map_E_center[idx_E]
+
+            idx_bestfit_f = idx_E - self.Ebinmin
+            lnl_max = self.log_likelihood_Ebin(bestfit_f[idx_bestfit_f], idx_E)
+            lnL_Ebin = np.zeros_like(f_Ebin)
+            for idx_f, f in enumerate(f_Ebin):
+                lnL_Ebin[idx_f] = self.log_likelihood_Ebin(f, idx_E)
+
+            castro = LnLFn(f_Ebin, -lnL_Ebin)
+            TS_Ebin = castro.TS()
+            # if this bin is significant, plot the 1 sigma interval
+            if TS_Ebin > TS_threshold:
+                f_lo, f_hi = castro.getInterval(0.32)
+                plt.errorbar(Defaults.map_logE_center[idx_E], bestfit_f[idx_bestfit_f] * factor_f2flux, yerr=[[(bestfit_f[idx_bestfit_f]-f_lo) * factor_f2flux], [(f_hi-bestfit_f[idx_bestfit_f]) * factor_f2flux]], xerr=Defaults.map_dlogE/2., color='k')
+                f_select_lo, f_select_hi = castro.getInterval(coloralphalimit)
+
+            # else plot the 2 sigma upper limit
+            else:
+                f_hi = castro.getLimit(0.05)
+                plt.errorbar(Defaults.map_logE_center[idx_E], f_hi * factor_f2flux, yerr=f_hi * factor_f2flux * 0.2, xerr=Defaults.map_dlogE/2.,  uplims=True, color='k')
+                f_select_lo, f_select_hi = 0, castro.getLimit(coloralphalimit)
+
+
+            # compute color blocks of delta likelihood
+            dlnl = np.zeros((colorfbin, 1))
+            f_select = np.linspace(f_select_lo, f_select_hi, colorfbin+1)
+
+            for idx_f_select, _f_select in enumerate(f_select[:-1]):
+               dlnl[idx_f_select][0] = self.log_likelihood_Ebin(_f_select, idx_E) - lnl_max
+
+
+            y_select = f_select * factor_f2flux
+            m = plt.pcolormesh([Defaults.map_logE_edge[idx_E], Defaults.map_logE_edge[idx_E+1]],y_select,  dlnl,
+                cmap=cmap, vmin=-2.5, vmax=0., linewidths=0, edgecolors='none')
+
+        cbar = plt.colorbar(m)
+        cbar.ax.set_ylabel('Delta logL', rotation=90,fontsize=16,labelpad=15)
+        plt.savefig(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'Fig_sedlnl.png'))
+
+
+
 
 
     def log_prior(self, f):
@@ -262,20 +402,13 @@ class Likelihood():
         return -np.inf
 
 
-    def log_probability(self, f, w_data, Ncount, lmin, Ebinmin, Ebinmax):
+    def log_probability(self, f):
         """Compute log of the probablity of f, given some data
 
         Parameters
         ----------
         f : `float`
             The signal fraction
-        w_data : `np.array`
-            The cross-correlation coefficients
-        Ncount : `np.array`
-        lmin : `int`
-            Minimum l to use in computing likelihood
-        Ebinmin : `int`
-        Ebinmax : `int`
 
         Returns
         -------
@@ -285,38 +418,31 @@ class Likelihood():
         lp = self.log_prior(f)
         if not np.isfinite(lp):
             return -np.inf
-        return lp + self.log_likelihood(f, w_data, Ncount, lmin, Ebinmin, Ebinmax)
+        return lp + self.log_likelihood(f)
 
 
 
-    def runMCMC(self, w_data, Ncount, lmin, Ebinmin, Ebinmax, Nwalker, Nstep=500):
+
+    def runMCMC(self, Nwalker, Nstep):
         """Run a Markov Chain Monte Carlo
 
         Parameters
         ----------
-        w_data : `np.array`
-            The cross-correlation coefficients
-        Ncount : `np.array`
-        lmin : `int`
-            Minimum l to use in computing likelihood
-        Ebinmin : `int`
-        Ebinmax : `int`
         Nwalker : `int`
         Nstep : `int`
         """
 
-        ndim = Ebinmax - Ebinmin
+        ndim = self.Ebinmax - self.Ebinmin
         pos = 0.3 + np.random.randn(Nwalker, ndim) * 0.1
         nwalkers, ndim = pos.shape
         backend = emcee.backends.HDFBackend(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'test.h5'))
         backend.reset(nwalkers, ndim)
-        sampler = emcee.EnsembleSampler(nwalkers, ndim, self.log_probability,
-                                        args=(w_data, Ncount, lmin, Ebinmin, Ebinmax), backend=backend)
+        sampler = emcee.EnsembleSampler(nwalkers, ndim, self.log_probability, backend=backend)
         sampler.run_mcmc(pos, Nstep, progress=True)
 
 
 
-    def plotMCMCchain(self, ndim, labels, truths):
+    def plotMCMCchain(self, ndim, labels, truths, plotChain=False):
         """Plot the results of a Markov Chain Monte Carlo
 
         Parameters
@@ -330,20 +456,22 @@ class Likelihood():
         """
 
         reader = emcee.backends.HDFBackend(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'test.h5'))
-        fig, axes = plt.subplots(ndim, figsize=(10, 7), sharex=True)
-        samples = reader.get_chain()
 
-        for i in range(ndim):
-            ax = axes[i]
-            ax.plot(samples[:, :, i], "k", alpha=0.3)
-            ax.set_xlim(0, len(samples))
-            ax.set_ylabel(labels[i])
-            ax.yaxis.set_label_coords(-0.1, 0.5)
+        if plotChain:
+            fig, axes = plt.subplots(ndim, figsize=(10, 7), sharex=True)
+            samples = reader.get_chain()
 
-        axes[-1].set_xlabel("step number")
-        fig.savefig(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'MCMCchain.pdf'))
+            for i in range(ndim):
+                ax = axes[i]
+                ax.plot(samples[:, :, i], "k", alpha=0.3)
+                ax.set_xlim(0, len(samples))
+                ax.set_ylabel(labels[i])
+                ax.yaxis.set_label_coords(-0.1, 0.5)
+
+            axes[-1].set_xlabel("step number")
+            fig.savefig(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'MCMCchain.pdf'))
 
         flat_samples = reader.get_chain(discard=100, thin=15, flat=True)
         #print(flat_samples.shape)
         fig = corner.corner(flat_samples, labels=labels, truths=truths)
-        fig.savefig(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'MCMCcorner.pdf'))
+        fig.savefig(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'Fig_MCMCcorner.pdf'))

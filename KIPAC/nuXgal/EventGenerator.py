@@ -27,41 +27,59 @@ class EventGenerator():
 
     This can generate both atmospheric and astrophysical events
     """
-    def __init__(self, year='IC86-2012'):
+    def __init__(self, year='IC86-2012', astroModel=None):
         """C'tor
         """
-        coszenith_path = os.path.join(Defaults.NUXGAL_IRF_DIR, 'Ncosz'+year+'-'+'{i}.txt')
-
-        #nevents_path = os.path.join(Defaults.NUXGAL_IRF_DIR, 'eventNumber_Ebin'+str(year)+'.txt')
-        #nnu_path = os.path.join(Defaults.NUXGAL_IRF_DIR, 'neutrinoNumber_Ebin'+str(year)+'.txt')
-        #aeff_path = os.path.join(Defaults.NUXGAL_IRF_DIR, 'Aeff{i}.fits')
-        #aeff = file_utils.read_maps_from_fits(aeff_path, Defaults.NEbin)
-        #self.nevts = np.loadtxt(nevents_path)
-        #self.nnus = np.loadtxt(nnu_path)
-
-
-        aeff = WeightedAeff(year).exposuremap_astro
+        self.year = year
+        coszenith_path = os.path.join(Defaults.NUXGAL_IRF_DIR, 'Ncos_theta_'+year+'_'+'{i}.txt')
         cosz = file_utils.read_cosz_from_txt(coszenith_path, Defaults.NEbin)
         self.nevts = np.sum(cosz[:, :, 1], axis=1)
-        self.nnus = np.zeros(Defaults.NEbin)
-        index_north = np.where(cosz[0][:,0] > 0)
-        for i in range(Defaults.NEbin):
-            self.nnus[i] = np.sum(cosz[i][index_north][:,1])
-
-
         self._atm_gen = AtmGenerator(Defaults.NEbin, coszenith=cosz, nevents_expected=self.nevts)
+
+        if astroModel is not None:
+            self.initializeAstro(astroModel)
+
+
+    def initializeAstro(self, astroModel):
+
+        self.astroModel = astroModel
+
+        if astroModel == 'numu':
+            # calculate expected event number using IceCube diffuse neutrino flux
+            # in GeV^-1 cm^-2 s^-1 sr^-1, muon neutrino, 1908.09551
+            dN_dE_astro = lambda E_GeV: 1.44E-18 * (E_GeV / 100e3)**(-2.28)
+            spectralIndex = 2.28
+
+        elif astroModel == 'hese':
+            # calculate expected event number using IceCube HESE flux
+            # in GeV^-1 cm^-2 s^-1 sr^-1, three flavors / 3 for muon neutrinos, 1907.11266
+            dN_dE_astro = lambda E_GeV: 6.45E-18 * (E_GeV / 100e3)**(-2.89) / 3.
+            spectralIndex = 2.89
+
+        else:
+            print ("Unknown astro model. Use 'numu' as default value")
+            dN_dE_astro = lambda E_GeV: 1.44E-18 * (E_GeV / 100e3)**(-2.28)
+            spectralIndex = 2.28
+
+        aeff = WeightedAeff(self.year, spectralIndex).exposuremap
         self._astro_gen = AstroGenerator_v2(Defaults.NEbin, aeff=aeff)
         self.Aeff_max = aeff.max(1)
 
-        # calculate expected event number using IceCube diffuse neutrino flux
-        # in GeV^-1 cm^-2 s^-1 sr^-1, muon neutrino
-        dN_dE_astro = lambda E_GeV: 1.44E-18 * (E_GeV / 100e3)**(-2.28)
+
         # total expected number of events before cut, for one year data
         self.Nastro_1yr_Aeffmax = np.zeros(Defaults.NEbin)
         for i in np.arange(Defaults.NEbin):
             self.Nastro_1yr_Aeffmax[i] = dN_dE_astro(10.**Defaults.map_logE_center[i]) *\
                 (10. ** Defaults.map_logE_center[i] * np.log(10.) * Defaults.map_dlogE) *\
                 (self.Aeff_max[i] * 1E4) * (333 * 24. * 3600) * 4 * np.pi
+
+
+
+        #self.nnus = np.zeros(Defaults.NEbin)
+        #index_north = np.where(cosz[0][:,0] > 0)
+        #for i in range(Defaults.NEbin):
+        #    self.nnus[i] = np.sum(cosz[i][index_north][:,1])
+
 
 
     @property
@@ -90,8 +108,7 @@ class EventGenerator():
         counts_map : `np.ndarray`
             Maps of simulated events
         """
-        #pdf = density / density.mean()
-        #self._astro_gen.pdf.set_value(pdf, clear_parent=False)
+
         self._astro_gen.normalized_counts_map = normalized_counts_map
         self._astro_gen.nevents_expected.set_value(intrinsicCounts, clear_parent=False)
         return self._astro_gen.generate_event_maps(1)[0]
@@ -171,25 +188,15 @@ class EventGenerator():
             return countsmap
 
         else:
-
-            f_atm = np.zeros(Defaults.NEbin)
-
-            f_diff = 1.
-            for i in range(Defaults.NEbin):
-                if self.nnus[i] != 0.:
-                    f_atm[i] = 1. - self.Nastro_1yr_Aeffmax[i] * f_diff / self.nnus[i]
-                    if f_atm[i] < 0:
-                        f_atm[i] = 0
-            #print ('fraction of atm events:', f_atm)
-
-
-            # generate atmospheric eventmaps
-            Natm = np.random.poisson(self.nevts * N_yr )# * f_atm)
-            self._atm_gen.nevents_expected.set_value(Natm, clear_parent=False)
-            atm_map = self._atm_gen.generate_event_maps(1)[0]
-
+            assert (self.astroModel is not None), "EventGenerator: no astrophysical model"
             # generate astro maps
             Nastro = np.random.poisson(self.Nastro_1yr_Aeffmax * N_yr * f_diff)
             astro_map = self.astroEvent_galaxy(Nastro, density_nu)
+
+            # generate atmospheric eventmaps
+            Natm = np.random.poisson(self.nevts * N_yr) - Nastro
+            Natm[np.where(Natm < 0)] = 0.
+            self._atm_gen.nevents_expected.set_value(Natm, clear_parent=False)
+            atm_map = self._atm_gen.generate_event_maps(1)[0]
 
             return (atm_map + astro_map)
