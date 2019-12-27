@@ -139,14 +139,14 @@ def GalaxySampleCharacters(plotWISEmap=True, plotpowerspectrum=True):
         matplotlib.rc('font', **font)
         matplotlib.rc('legend', **legendfont)
 
-        N_tot_analy = float(gs_analy.galaxymap.sum())
+        N_tot_analy = float(gs_WISE.galaxymap.sum())
         shortNoiseMap = np.random.poisson(N_tot_analy / Defaults.NPIXEL, Defaults.NPIXEL)
         shortNoiseMap_Cl_mean = np.mean(hp.anafast(shortNoiseMap / shortNoiseMap.mean() - 1.))
 
         plt.plot(Defaults.ell, gs_analy.analyCL[0:Defaults.NCL], lw=3, color='k', label='Analytical power spectrum')
-        plt.plot(Defaults.ell, gs_analy.analyCL[0:Defaults.NCL]+shortNoiseMap_Cl_mean, lw=2, color='k', label='Analytical power spectrum + short noise')
-        plt.plot(Defaults.ell, hp.anafast(gs_analy.overdensity) / gs_analy.f_sky, lw=2, color='grey', label='Simulated galaxy sample')
-        plt.plot(Defaults.ell, hp.anafast(gs_WISE.overdensity) / gs_WISE.f_sky, lw=4, color='mediumslateblue', label='WISE-2MASS galaxy sample')
+        #plt.plot(Defaults.ell, (gs_analy.analyCL[0:Defaults.NCL]+shortNoiseMap_Cl_mean) / 0.4, lw=2, color='k', label='Analytical power spectrum + short noise')
+        plt.plot(Defaults.ell, hp.sphtfunc.alm2cl(gs_analy.overdensityalm) / gs_analy.f_sky, lw=2, color='grey', label='Simulated galaxy sample')
+        plt.plot(Defaults.ell, hp.sphtfunc.alm2cl(gs_WISE.overdensityalm) / gs_WISE.f_sky, lw=4, color='mediumslateblue', label='WISE-2MASS galaxy sample')
         plt.yscale('log')
         plt.ylim(1e-7, 2e-2)
         plt.ylabel('$C_\ell$')
@@ -167,8 +167,8 @@ def TS_distribution(readfile = False, galaxyName='WISE', computeSTD=False, Ebinm
     matplotlib.rc('legend', **legendfont)
     plt.ylabel('1 - Cumulative Probability')
     plt.xlabel('Test Statistics')
-    plt.xlim(-5, 50)
-    plt.ylim(1e-2, 2)
+    plt.xlim(-5, 40)
+    plt.ylim(1e-4, 2)
     plt.yscale('log')
 
     colors_atm = ['b', 'b']
@@ -209,12 +209,12 @@ def TS_distribution(readfile = False, galaxyName='WISE', computeSTD=False, Ebinm
 
     c = plt.plot([], [], 'r', lw=2, label='Atm. + Astro.' )
     d = plt.plot([], [], 'b', lw=2, label='Atm. only')
-    plt.plot(TS_bins_c, 1 - (0.5 + stats.chi2.cdf(TS_bins_c, Ebinmax-Ebinmin)/2),'--', color='grey', lw=2, label=r'$\chi^2$ distribution (dof=3)')
+    plt.plot(TS_bins_c, 1 - (0.5 + stats.chi2.cdf(TS_bins_c, Ebinmax-Ebinmin-1)/2),'--', color='grey', lw=2, label=r'$\chi^2$ (dof=2)')
 
     legend1 = plt.legend(plot_lines[0], ["10 yr", "3 yr"], loc=4)
     plt.legend(numpoints=1, scatterpoints=1, frameon=True,fontsize=16, loc=1)
     plt.gca().add_artist(legend1)
-    plt.savefig(testfigpath+'TS_distribution.pdf')
+    plt.savefig(testfigpath+galaxyName+'_'+str(Ebinmax)+'TS_distribution.pdf')
 
 
 def BestfitModel(ns, N_yr=1, galaxyName='WISE',Ebinmin=1, Ebinmax=4, lmin=50, plotMCMC=False, plotSED=False):
@@ -239,12 +239,13 @@ def BestfitModel(ns, N_yr=1, galaxyName='WISE',Ebinmin=1, Ebinmax=4, lmin=50, pl
 
 
 if __name__ == '__main__':
-    CompareNeutrinoMaps(energyBin=2, plotcount=True, plotoverdensity=True, plotpowerspectrum=True, plotcostheta=True)
-    GalaxySampleCharacters(plotWISEmap=True, plotpowerspectrum=True)
-    #TS_distribution(readfile = True, galaxyName='WISE', computeSTD=False, Ebinmin=1, Ebinmax=4, lmin=50, N_re=1000)
+    #CompareNeutrinoMaps(energyBin=2, plotcount=True, plotoverdensity=True, plotpowerspectrum=True, plotcostheta=True)
+    #GalaxySampleCharacters(plotWISEmap=False, plotpowerspectrum=True)
+    #TS_distribution(readfile = False, galaxyName='WISE', computeSTD=False, Ebinmin=1, Ebinmax=3, lmin=50, N_re=10000)
+    TS_distribution(readfile = True, galaxyName='WISE', computeSTD=False, Ebinmin=1, Ebinmax=4, lmin=50, N_re=1000)
 
-    ns = IC3yr
-    N_yr = 3
+    #ns = IC3yr
+    #N_yr = 3
     #ns = NeutrinoSample()
     #ns.inputCountsmap(EventGenerator('IC86-2012', 'numu').SyntheticData(10., 1., density_nu=GalaxySample('WISE').density))
-    BestfitModel(ns=ns, N_yr=N_yr, galaxyName='WISE', lmin=50, plotMCMC=False, plotSED=True)
+    #BestfitModel(ns=ns, N_yr=N_yr, galaxyName='WISE', lmin=50, plotMCMC=False, plotSED=True)

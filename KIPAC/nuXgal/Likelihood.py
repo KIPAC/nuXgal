@@ -87,10 +87,10 @@ class Likelihood():
         else:
             #w_atm_mean_file = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,  'w_atm_mean' + '_' + str(self.N_yr) + '.txt'))
             #self.w_atm_mean = w_atm_mean_file.reshape((Defaults.NEbin, Defaults.NCL))
-            w_atm_std_file = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,  'w_atm_std' + '_' + str(self.N_yr) + '.txt'))
+            w_atm_std_file = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,  'w_atm_std_' + self.gs.galaxyName + '_' + str(self.N_yr) + '.txt'))
             self.w_atm_std = w_atm_std_file.reshape((Defaults.NEbin, Defaults.NCL))
             self.w_atm_std_square = self.w_atm_std ** 2
-            self.Ncount_atm = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,  'Ncount_atm_after_masking' + '_' + str(self.N_yr) + '.txt'))
+            self.Ncount_atm = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,  'Ncount_atm_after_masking_' + self.gs.galaxyName + '_' + str(self.N_yr) + '.txt'))
 
         self.w_std_square0 = np.zeros((Defaults.NEbin, Defaults.NCL))
         for i in range(Defaults.NEbin):
@@ -111,8 +111,11 @@ class Likelihood():
 
 
     def calculate_w_mean(self):
-        """Compute the mean cross corrleations assuming f=1"""
-        overdensity_g = self.gs.overdensity.data.copy()
+        """Compute the mean cross corrleations assuming neutrino sources follow the same alm
+            Note that this is slightly different from the original Cl as the mask has been updated.
+        """
+
+        overdensity_g = hp.alm2map(self.gs.overdensityalm, nside=Defaults.NSIDE, verbose=False)
         overdensity_g[self.idx_mask] = hp.UNSEEN
         w_mean = hp.anafast(overdensity_g) / self.f_sky
         self.w_model_f1 = np.zeros((Defaults.NEbin, Defaults.NCL))
@@ -160,7 +163,7 @@ class Likelihood():
 
             ns.inputCountsmap(eventmap_atm)
             ns.updateMask(self.idx_mask)
-            w_cross[iteration] = ns.getCrossCorrelation(self.gs.overdensity)
+            w_cross[iteration] = ns.getCrossCorrelation(self.gs.overdensityalm)
             Ncount_av = Ncount_av + ns.getEventCounts()
 
 
@@ -177,8 +180,8 @@ class Likelihood():
         self.w_atm_std_square = self.w_atm_std ** 2
         if writeMap:
             #np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'w_atm_mean' + '_' + str(self.N_yr) + '.txt'), self.w_atm_mean)
-            np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'w_atm_std' + '_' + str(self.N_yr) + '.txt'), self.w_atm_std)
-            np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'Ncount_atm_after_masking' + '_' + str(self.N_yr) + '.txt'), self.Ncount_atm)
+            np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'w_atm_std_' + self.gs.galaxyName + '_' + str(self.N_yr) + '.txt'), self.w_atm_std)
+            np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'Ncount_atm_after_masking_' + self.gs.galaxyName + '_' + str(self.N_yr) + '.txt'), self.Ncount_atm)
 
 
     def inputData(self, ns):
@@ -194,7 +197,7 @@ class Likelihood():
         None
         """
         ns.updateMask(self.idx_mask)
-        self.w_data = ns.getCrossCorrelation(self.gs.overdensity)
+        self.w_data = ns.getCrossCorrelation(self.gs.overdensityalm)
         self.Ncount = ns.getEventCounts()
 
 
@@ -324,9 +327,8 @@ class Likelihood():
         plt.xlim(2, 7)
         plt.yscale('log')
 
-        #cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", [ "lightgrey", "mediumslateblue", "skyblue"]) #["white",  "dimgray",  "mediumslateblue",  "cyan", "yellow", "red"]
-        cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", [ "dimgrey", "olive", "forestgreen","yellowgreen"]) #["white",  "dimgray",  "mediumslateblue",  "cyan", "yellow", "red"]
-        #cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", [ "dimgrey", "royalblue", "skyblue"]) #["white",  "dimgray",  "mediumslateblue",  "cyan", "yellow", "red"]
+        #cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", [ "dimgrey", "olive", "forestgreen","yellowgreen"]) #["white",  "dimgray",  "mediumslateblue",  "cyan", "yellow", "red"]
+        cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", [ "navy", "deepskyblue", "lightgrey"])
 
 
         bestfit_f, _ = self.minimize__lnL()

@@ -55,15 +55,17 @@ class NeutrinoSample():
         """Compute the intensity / energy flux of the neutirno sample"""
         wAeff = WeightedAeff(year, spectralIndex)
         fluxmap = np.divide(self.countsmap, wAeff.exposuremap, out=np.zeros_like(self.countsmap), where=wAeff.exposuremap != 0)
-        intensity = fluxmap.sum(axis=1) / (10.**Defaults.map_logE_center * np.log(10.) * Defaults.map_dlogE) / (dt_years * Defaults.DT_SECONDS) / (4 * np.pi * f_sky)  / 1e4 ## exposure map in m^2
+        intensity = fluxmap.sum(axis=1) / (10.**Defaults.map_logE_center * np.log(10.) * Defaults.map_dlogE) / (dt_years * Defaults.DT_SECONDS) / (4 * np.pi * self.f_sky)  / 1e4 ## exposure map in m^2
         return intensity
 
     def getOverdensity(self):
-        overdensity = np.zeros((Defaults.NEbin, Defaults.NPIXEL))
-        for i in range(Defaults.NEbin):
-            overdensity[i] = self.countsmap[i] / self.countsmap[i].mean() - 1.
+        overdensity = [self.countsmap[i] / self.countsmap[i].mean() - 1. for i in range(Defaults.NEbin)]
         return overdensity
 
+    def getAlm(self):
+        overdensity = self.getOverdensity()
+        alm = [hp.sphtfunc.map2alm(overdensity[i]) for i in range(Defaults.NEbin)]
+        return alm
 
     def getPowerSpectrum(self):
         """Compute the power spectrum of the neutirno sample"""
@@ -72,11 +74,19 @@ class NeutrinoSample():
         return w_auto
 
 
-    def getCrossCorrelation(self, overdensityMap_g):
+    #def getCrossCorrelation(self, overdensityMap_g):
+    #    """Compute the cross correlation between the overdensity map and a counts map"""
+    #    overdensity = self.getOverdensity()
+    #    w_cross = [hp.sphtfunc.anafast(overdensity[i], overdensityMap_g) / self.f_sky for i in range(Defaults.NEbin)]
+    #    return w_cross
+
+    def getCrossCorrelation(self, alm_g):
         """Compute the cross correlation between the overdensity map and a counts map"""
         overdensity = self.getOverdensity()
-        w_cross = [hp.sphtfunc.anafast(overdensity[i], overdensityMap_g) / self.f_sky for i in range(Defaults.NEbin)]
+        alm_nu = [hp.sphtfunc.map2alm(overdensity[i]) for i in range(Defaults.NEbin)]
+        w_cross = [hp.sphtfunc.alm2cl(alm_nu[i], alm_g) / self.f_sky for i in range(Defaults.NEbin)]
         return w_cross
+
 
 
 
