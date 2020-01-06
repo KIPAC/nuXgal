@@ -8,8 +8,6 @@ import healpy as hp
 
 from scipy import integrate
 
-from KIPAC.nuXgal import Analyze
-
 from KIPAC.nuXgal import EventGenerator
 
 from KIPAC.nuXgal import Defaults
