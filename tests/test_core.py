@@ -18,9 +18,9 @@ from KIPAC.nuXgal import hp_utils
 
 from KIPAC.nuXgal import FigureDict
 
-from KIPAC.nuXgal import Utilityfunc
-
 from KIPAC.nuXgal.GalaxySample import GalaxySample
+
+from KIPAC.nuXgal.NeutrinoSample import NeutrinoSample
 
 try:
     from Utils import MAKE_TEST_PLOTS
@@ -43,11 +43,11 @@ for dirname in [Defaults.NUXGAL_SYNTHETICDATA_DIR, Defaults.NUXGAL_PLOT_DIR]:
 
 # --- EventGenerator tests ---
 def astroEvent_galaxy(f_diff = 1.):
-    eg = EventGenerator()
-    gs = GalaxySample()
+    eg = EventGenerator(year='IC86-2012', astroModel='numu')
+    gs = GalaxySample('analy')
     Nastro = np.random.poisson(eg.Nastro_1yr_Aeffmax * f_diff)
     print (Nastro)
-    eventmap = eg.astroEvent_galaxy(Nastro, gs.getDensity('analy'))
+    eventmap = eg.astroEvent_galaxy(Nastro, gs.density)
     file_utils.write_maps_to_fits(eventmap, astropath)
 
     if MAKE_TEST_PLOTS:
@@ -109,36 +109,27 @@ def test_EventGenerator():
     for i in range(0, 5):
         atmBG_coszenith(i)
 
-    #astroEvent_galaxy()
+    astroEvent_galaxy()
     atmBG()
 
 
 
 def test_energySpectrum():
 
-    gs = GalaxySample()
-    cf = Analyze(gs.getOverdensity('analy'))
+    ns_astro = NeutrinoSample()
+    ns_astro.inputData(astropath)
 
-    # --- event -
+    ns_atm = NeutrinoSample()
+    ns_atm.inputData(bgpath)
 
-    countsmap = file_utils.read_maps_from_fits(astropath, Defaults.NEbin)
-    intensity_astro = cf.getIntensity(countsmap)
+    # apply southern sky mask
+    ns_atm.updateMask(Defaults.idx_muon)
+    intensity_atm_nu = ns_atm.getIntensity(1., spectralIndex=3.7, year='IC86-2012')
 
-    # --- atm -
-    exposuremap_theta, _ = hp.pixelfunc.pix2ang(Defaults.NSIDE,
-                                                np.arange(hp.pixelfunc.nside2npix(Defaults.NSIDE)))
+    ns_astro.updateMask(Defaults.idx_muon)
+    # assuming an E^-2.28 spectrum inside energy bins for estimation of effective area
+    intensity_astro = ns_astro.getIntensity(1., spectralIndex=2.28, year='IC86-2012')
 
-    bgmap = file_utils.read_maps_from_fits(bgpath, Defaults.NEbin)
-
-    # southern sky mask
-    mask_muon = np.where(exposuremap_theta > 85. / 180 * np.pi)
-    bgmap_nu = hp_utils.vector_apply_mask(bgmap, mask_muon, copy=True)
-    intensity_atm_nu = cf.getIntensity(bgmap_nu)
-
-    # northern sky mask
-    mask_north = np.where(exposuremap_theta < 85. / 180 * np.pi)
-    bgmap_mu = hp_utils.vector_apply_mask(bgmap, mask_north, copy=True)
-    intensity_atm_mu = cf.getIntensity(bgmap_mu)
 
     #print (intensity_astro * Defaults.map_E_center**2 , intensity_atm_nu * Defaults.map_E_center**2)
 
@@ -167,33 +158,33 @@ def test_energySpectrum():
 
 
 def test_PowerSpectrum():
-    gs = GalaxySample()
-    cf = Analyze(gs.getOverdensity('analy'))
-    bgmap = file_utils.read_maps_from_fits(bgpath, Defaults.NEbin)
-    cl_nu = cf.powerSpectrumFromCountsmap(bgmap)
-    gs = GalaxySample()
+
+    ns_atm = NeutrinoSample()
+    ns_atm.inputData(bgpath)
+
+    gs = GalaxySample('analy')
+
 
     if MAKE_TEST_PLOTS:
 
         figs = FigureDict()
         color = ['r', 'orange', 'limegreen', 'skyblue', 'mediumslateblue', 'purple', 'grey']
 
-        figs.plot_cl('PowerSpectrum_atm', Defaults.ell, cl_nu,
+        figs.plot_cl('PowerSpectrum_atm', Defaults.ell, ns_atm.getPowerSpectrum(),
                      xlabel="l", ylavel=r'$C_{l}$', figsize=(8, 6),
                      colors=color)
-        figs.plot('PowerSpectrum_atm', Defaults.ell, gs.getCL('analy'), color='k', linestyle='--', lw=2)
+        figs.plot('PowerSpectrum_atm', Defaults.ell, gs.analyCL[0:3*Defaults.NSIDE], color='k', linestyle='--', lw=2)
         figs.save_all(testfigpath, 'pdf')
 
 
 def test_CrossCorrelation():
-    gs = GalaxySample()
-    cf = Analyze(gs.getOverdensity('analy'))
-    bgmap = file_utils.read_maps_from_fits(bgpath, Defaults.NEbin)
+    ns_astro = NeutrinoSample()
+    ns_astro.inputData(astropath)
 
-    astromap = file_utils.read_maps_from_fits(astropath, Defaults.NEbin)
-    countsmap = astromap # + bgmap
-    w_cross = cf.crossCorrelationFromCountsmap(countsmap)
 
+
+    gs = GalaxySample('analy')
+    w_cross = ns_astro.getCrossCorrelation(gs.overdensityalm)
 
     if MAKE_TEST_PLOTS:
         figs = FigureDict()
@@ -202,7 +193,7 @@ def test_CrossCorrelation():
         o_dict = figs.setup_figure('Wcross', xlabel="l", ylabel=r'$w$', figsize=(6, 8))
         axes = o_dict['axes']
         for i in range(Defaults.NEbin):
-            axes.plot(Defaults.ell, gs.getCL('analy') * 10 ** (i * 2), color='k', lw=2)
+            axes.plot(Defaults.ell, gs.analyCL[0:3*Defaults.NSIDE] * 10 ** (i * 2), color='k', lw=2)
             w_cross[i] *= 10 ** (i*2)
 
 
@@ -317,6 +308,6 @@ if __name__ == '__main__':
     #test_Demonstration()
 
     test_EventGenerator()
-    #test_PowerSpectrum()
-    #test_CrossCorrelation()
-    #test_energySpectrum()
+    test_PowerSpectrum()
+    test_CrossCorrelation()
+    test_energySpectrum()

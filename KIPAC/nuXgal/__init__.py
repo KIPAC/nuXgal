@@ -1,7 +1,6 @@
 """Software for analyzing neutrio X galaxy correlations
 
 """
-from . import Utilityfunc
 from . import Defaults
 from . import utilities
 from . import hp_utils

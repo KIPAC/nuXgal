@@ -1,6 +1,16 @@
 """Utility clases for nuXgal"""
 
 import numpy as np
+import os
+
+def makedir_safe(filepath):
+    """Make a directory for a file and catch exceptions if it already exists"""
+    try:
+        os.makedirs(os.path.dirname(filepath))
+    except OSError:
+        pass
+
+
 
 class CachedObject:
     """An object that can be used to cache an object

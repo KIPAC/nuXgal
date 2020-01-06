@@ -15,22 +15,22 @@ from . import file_utils
 class WeightedAeff():
     """Weighted Effective Area class"""
 
-    def __init__(self, year='IC86-2012', computeTables=False):
+    def __init__(self, year='IC86-2012', spectralIndex=3.7):
         """C'tor"""
 
         self.year = year
-        aeff_atm_path = os.path.join(Defaults.NUXGAL_IRF_DIR, 'WeightedAeff_atm_' + year + '-' + '{i}.fits')
-        aeff_astro_path = os.path.join(Defaults.NUXGAL_IRF_DIR, 'WeightedAeff_astro_' + year + '-' + '{i}.fits')
+        self.spectralIndex = spectralIndex
+        aeff_path = os.path.join(Defaults.NUXGAL_IRF_DIR, 'WeightedAeff_' + year + '_' + str(spectralIndex) + '_' + '{i}.fits')
+        aeff_path_0 = os.path.join(Defaults.NUXGAL_IRF_DIR, 'WeightedAeff_' + year + '_' + str(spectralIndex) + '_' + '0.fits')
 
-        if computeTables:
-            self.exposuremap_atm = self.computeWeightedAeff(3.7)
-            self.exposuremap_astro = self.computeWeightedAeff(2.28)
-            file_utils.write_maps_to_fits(self.exposuremap_atm, aeff_atm_path)
-            file_utils.write_maps_to_fits(self.exposuremap_astro, aeff_astro_path)
+        if os.path.exists(aeff_path_0):
+            self.exposuremap = file_utils.read_maps_from_fits(aeff_path, Defaults.NEbin)
 
         else:
-            self.exposuremap_atm = file_utils.read_maps_from_fits(aeff_atm_path, Defaults.NEbin)
-            self.exposuremap_astro = file_utils.read_maps_from_fits(aeff_astro_path, Defaults.NEbin)
+            print (aeff_path, 'does not exist. Compute effective area with spectralIndex =', spectralIndex)
+            self.exposuremap = self.computeWeightedAeff(spectralIndex)
+            file_utils.write_maps_to_fits(self.exposuremap, aeff_path)
+
 
 
 
