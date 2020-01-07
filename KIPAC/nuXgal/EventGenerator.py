@@ -6,7 +6,7 @@ import numpy as np
 from . import Defaults
 from . import file_utils
 from .Generator import AtmGenerator, AstroGenerator_v2
-from .WeightedAeff import ICECUBE_EXPOSURE_LIBRARY
+from .Exposure import ICECUBE_EXPOSURE_LIBRARY
 
 
 # dN/dE \propto E^alpha

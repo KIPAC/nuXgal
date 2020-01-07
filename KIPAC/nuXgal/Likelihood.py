@@ -17,7 +17,7 @@ from . import Defaults
 from .GalaxySample import GalaxySample
 from .NeutrinoSample import NeutrinoSample
 from .FermipyCastro import LnLFn
-from .WeightedAeff import ICECUBE_EXPOSURE_LIBRARY
+from .Exposure import ICECUBE_EXPOSURE_LIBRARY
 
 def significance(chi_square, dof):
     """Construct an significance for a chi**2 distribution

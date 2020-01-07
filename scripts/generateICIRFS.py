@@ -6,7 +6,7 @@ import healpy as hp
 from KIPAC.nuXgal import Defaults
 from KIPAC.nuXgal import file_utils
 from KIPAC.nuXgal import FigureDict
-from KIPAC.nuXgal.WeightedAeff import ICECUBE_EXPOSURE_LIBRARY
+from KIPAC.nuXgal.Exposure import ICECUBE_EXPOSURE_LIBRARY
 
 parser = argparse.ArgumentParser()
 

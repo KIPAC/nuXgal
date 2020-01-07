@@ -8,7 +8,7 @@ from . import Defaults
 
 from . import file_utils
 
-from .WeightedAeff import ICECUBE_EXPOSURE_LIBRARY
+from .Exposure import ICECUBE_EXPOSURE_LIBRARY
 
 from .plot_utils import FigureDict
 
