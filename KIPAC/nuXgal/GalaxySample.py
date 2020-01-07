@@ -57,7 +57,8 @@ class GalaxySample():
             from astropy import units as u
             from astropy.coordinates import SkyCoord
             #WISE-2MASS galaxy sample map based on ~5M galaixes
-            c_icrs = SkyCoord(ra=Defaults.exposuremap_phi * u.radian, dec=(np.pi/2 - Defaults.exposuremap_theta)*u.radian, frame='icrs')
+            c_icrs = SkyCoord(ra=Defaults.exposuremap_phi * u.radian,
+                              dec=(np.pi/2 - Defaults.exposuremap_theta)*u.radian, frame='icrs')
             self.idx_galaxymask = np.where(np.abs(c_icrs.galactic.b.degree) < 10)
 
         if self.galaxyName == 'analy':
@@ -82,8 +83,8 @@ class GalaxySample():
         analyCLpath = os.path.join(Defaults.NUXGAL_ANCIL_DIR, 'Cl_ggRM.dat')
         analyCL = np.loadtxt(analyCLpath)
         np.random.seed(Defaults.randomseed_galaxy)
-        alm = hp.sphtfunc.synalm(analyCL,lmax = Defaults.MAX_L)
-        density_g = hp.sphtfunc.alm2map(alm, Defaults.NSIDE,  verbose=False)
+        alm = hp.sphtfunc.synalm(analyCL, lmax=Defaults.MAX_L)
+        density_g = hp.sphtfunc.alm2map(alm, Defaults.NSIDE, verbose=False)
         #density_g = hp.sphtfunc.synfast(analyCL, Defaults.NSIDE)
         density_g = np.exp(density_g)
         density_g /= density_g.sum()

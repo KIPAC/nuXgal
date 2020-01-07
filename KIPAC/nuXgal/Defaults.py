@@ -53,3 +53,8 @@ ell = np.arange(NSIDE * 3)
 exposuremap_theta, exposuremap_phi = hp.pixelfunc.pix2ang(NSIDE, np.arange(NPIXEL))
 
 idx_muon = np.where(exposuremap_theta > np.radians(85.))
+
+
+# Format strings for file paths
+WEIGHTED_AEFF_FORMAT = os.path.join(Defaults.NUXGAL_IRF_DIR, 'WeightedAeff_{year}_{specIndex}_{ebin}.fits')
+TABULATED_AEFF_FORMAT = os.path.join(Defaults.NUXGAL_IRF_DIR, '{year}-TabulatedAeff.fits')

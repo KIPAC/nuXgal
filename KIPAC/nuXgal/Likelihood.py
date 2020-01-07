@@ -5,18 +5,19 @@ import numpy as np
 import healpy as hp
 import emcee
 import corner
-import matplotlib.pyplot as plt
-from scipy.optimize import minimize
-import matplotlib
-from scipy.stats import norm, distributions
 
+import matplotlib.pyplot as plt
+import matplotlib
+
+from scipy.optimize import minimize
+from scipy.stats import norm, distributions
 
 from .EventGenerator import EventGenerator
 from . import Defaults
 from .GalaxySample import GalaxySample
 from .NeutrinoSample import NeutrinoSample
 from .FermipyCastro import LnLFn
-from .WeightedAeff import WeightedAeff
+from .WeightedAeff import ICECUBE_EXPOSURE_LIBRARY
 
 def significance(chi_square, dof):
     """Construct an significance for a chi**2 distribution
@@ -80,17 +81,24 @@ class Likelihood():
         # scaled mean and std
         self.calculate_w_mean()
         self.N_yr = N_yr
+        self.w_data = None
+        self.Ncount = None
 
         # compute or load w_atm distribution
         if computeSTD:
             self.computeAtmophericEventDistribution(N_re=300, writeMap=True)
         else:
-            #w_atm_mean_file = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,  'w_atm_mean' + '_' + str(self.N_yr) + '.txt'))
+            #w_atm_mean_file = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,  'w_atm_mean' +
+            #                                          '_' + str(self.N_yr) + '.txt'))
             #self.w_atm_mean = w_atm_mean_file.reshape((Defaults.NEbin, Defaults.NCL))
-            w_atm_std_file = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,  'w_atm_std_' + self.gs.galaxyName + '_' + str(self.N_yr) + '.txt'))
+            w_atm_std_file = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,
+                                                     'w_atm_std_' + self.gs.galaxyName + '_' +
+                                                     str(self.N_yr) + '.txt'))
             self.w_atm_std = w_atm_std_file.reshape((Defaults.NEbin, Defaults.NCL))
             self.w_atm_std_square = self.w_atm_std ** 2
-            self.Ncount_atm = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,  'Ncount_atm_after_masking_' + self.gs.galaxyName + '_' + str(self.N_yr) + '.txt'))
+            self.Ncount_atm = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,
+                                                      'Ncount_atm_after_masking_' + self.gs.galaxyName + '_' +
+                                                      str(self.N_yr) + '.txt'))
 
         self.w_std_square0 = np.zeros((Defaults.NEbin, Defaults.NCL))
         for i in range(Defaults.NEbin):
@@ -152,14 +160,16 @@ class Likelihood():
 
             if self.N_yr != 3:
                 eventnumber_Ebin = np.random.poisson(eg.nevts * self.N_yr)
-                eg._atm_gen.nevents_expected.set_value(eventnumber_Ebin, clear_parent=False)
-                eventmap_atm = eg._atm_gen.generate_event_maps(1)[0]
+                eg.atm_gen.nevents_expected.set_value(eventnumber_Ebin, clear_parent=False)
+                eventmap_atm = eg.atm_gen.generate_event_maps(1)[0]
 
             else:
-                eg_2010._atm_gen.nevents_expected.set_value(np.random.poisson(eg_2010.nevts * 1.), clear_parent=False)
-                eg_2011._atm_gen.nevents_expected.set_value(np.random.poisson(eg_2011.nevts * 1.), clear_parent=False)
-                eg_2012._atm_gen.nevents_expected.set_value(np.random.poisson(eg_2012.nevts * 1.), clear_parent=False)
-                eventmap_atm = eg_2010._atm_gen.generate_event_maps(1)[0] + eg_2011._atm_gen.generate_event_maps(1)[0] + eg_2012._atm_gen.generate_event_maps(1)[0]
+                eg_2010.atm_gen.nevents_expected.set_value(np.random.poisson(eg_2010.nevts * 1.), clear_parent=False)
+                eg_2011.atm_gen.nevents_expected.set_value(np.random.poisson(eg_2011.nevts * 1.), clear_parent=False)
+                eg_2012.atm_gen.nevents_expected.set_value(np.random.poisson(eg_2012.nevts * 1.), clear_parent=False)
+                eventmap_atm = eg_2010.atm_gen.generate_event_maps(1)[0] +\
+                    eg_2011.atm_gen.generate_event_maps(1)[0] +\
+                    eg_2012.atm_gen.generate_event_maps(1)[0]
 
             ns.inputCountsmap(eventmap_atm)
             ns.updateMask(self.idx_mask)
@@ -167,7 +177,8 @@ class Likelihood():
             Ncount_av = Ncount_av + ns.getEventCounts()
 
 
-            # first mask makes counts in masked region zero, for correct counting of event number. Second mask applies to healpy cross correlation calculation.
+            # first mask makes counts in masked region zero, for correct counting of event number.
+            # Second mask applies to healpy cross correlation calculation.
             #eventmap_atm = vector_apply_mask(eventmap_atm, self.idx_mask, copy=False)
             #w_cross[iteration] = ns.getCrossCorrelation_countsmap(eventmap_atm, self.gs.overdensity, self.idx_mask)
             #Ncount = Ncount + np.sum(eventmap_atm, axis=1)
@@ -179,9 +190,12 @@ class Likelihood():
 
         self.w_atm_std_square = self.w_atm_std ** 2
         if writeMap:
-            #np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'w_atm_mean' + '_' + str(self.N_yr) + '.txt'), self.w_atm_mean)
-            np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'w_atm_std_' + self.gs.galaxyName + '_' + str(self.N_yr) + '.txt'), self.w_atm_std)
-            np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'Ncount_atm_after_masking_' + self.gs.galaxyName + '_' + str(self.N_yr) + '.txt'), self.Ncount_atm)
+            #np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'w_atm_mean' + '_' + str(self.N_yr) + '.txt'),
+            #           self.w_atm_mean)
+            np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'w_atm_std_' +
+                                    self.gs.galaxyName + '_' + str(self.N_yr) + '.txt'), self.w_atm_std)
+            np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'Ncount_atm_after_masking_' +
+                                    self.gs.galaxyName + '_' + str(self.N_yr) + '.txt'), self.Ncount_atm)
 
 
     def inputData(self, ns):
@@ -237,7 +251,8 @@ class Likelihood():
             The log likelihood, computed as sum_l (data_l - f * model_mean_l) /  model_std_l
         """
         w_model_mean = (self.w_model_f1[self.Ebinmin : self.Ebinmax].T * f).T
-        w_model_std_square = (self.w_std_square0[self.Ebinmin : self.Ebinmax].T / self.Ncount[self.Ebinmin : self.Ebinmax]).T
+        w_model_std_square = (self.w_std_square0[self.Ebinmin : self.Ebinmax].T /
+                              self.Ncount[self.Ebinmin : self.Ebinmax]).T
         lnL_le = - (self.w_data[self.Ebinmin : self.Ebinmax] - w_model_mean) ** 2 / w_model_std_square / 2.
         return np.sum(lnL_le[:, self.lmin:])
 
@@ -297,7 +312,9 @@ class Likelihood():
             if self.N_yr != 3:
                 datamap = eg.SyntheticData(self.N_yr, f_diff=f_diff, density_nu=self.gs.density)
             else:
-                datamap = eg_2010.SyntheticData(1., f_diff=f_diff, density_nu=self.gs.density) + eg_2011.SyntheticData(1., f_diff=f_diff, density_nu=self.gs.density) + eg_2012.SyntheticData(1., f_diff=f_diff, density_nu=self.gs.density)
+                datamap = eg_2010.SyntheticData(1., f_diff=f_diff, density_nu=self.gs.density) +\
+                    eg_2011.SyntheticData(1., f_diff=f_diff, density_nu=self.gs.density) +\
+                    eg_2012.SyntheticData(1., f_diff=f_diff, density_nu=self.gs.density)
             ns.inputCountsmap(datamap)
             self.inputData(ns)
             minimizeResult = (self.minimize__lnL())
@@ -305,30 +322,44 @@ class Likelihood():
             TS_array[i] = minimizeResult[-1]
         if writeData:
             if f_diff == 0:
-                TSpath = os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'TS_'+str(f_diff)+'_'+self.gs.galaxyName+'_'+str(self.N_yr)+'.txt')
+                TSpath = os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'TS_' +\
+                                          str(f_diff) + '_' + self.gs.galaxyName +\
+                                          '_' + str(self.N_yr) + '.txt')
             else:
-                TSpath = os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'TS_'+str(f_diff)+'_'+self.gs.galaxyName+'_'+str(self.N_yr)+'_'+astroModel+'.txt')
+                TSpath = os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'TS_' +\
+                                          str(f_diff) + '_' + self.gs.galaxyName +\
+                                          '_' + str(self.N_yr) + '_'+astroModel + '.txt')
             np.savetxt(TSpath, TS_array)
         return TS_array
 
 
 
     def plotCastro(self, TS_threshold=4, coloralphalimit=0.01, colorfbin=500):
+        """Make a 'Castro' plot of the likelihood
 
-        plt.figure(figsize = (8,6))
-        font = { 'family': 'Arial', 'weight' : 'normal', 'size'   : 18}
+        Parameters
+        ----------
+        TS_threshold : `float`
+            Theshold at which to cut off the colormap
+        coloralphalimit : `float`
+        colorfbin : `int`
+        """
+        plt.figure(figsize=(8, 6))
+        font = {'family': 'Arial', 'weight' : 'normal', 'size'   : 18}
         legendfont = {'fontsize' : 18, 'frameon' : False}
         matplotlib.rc('font', **font)
         matplotlib.rc('legend', **legendfont)
-        plt.ylabel('$E^2 dN/dE\,[\mathrm{GeV\,cm^{-2}\,s^{-1}}]$')
-        plt.xlabel('$\log$ (E [GeV])')
+        plt.ylabel(r'$E^2 dN/dE\,[\mathrm{GeV\,cm^{-2}\,s^{-1}}]$')
+        plt.xlabel(r'$\log$ (E [GeV])')
         #plt.ylim(1e-3, 10) # for f_astro
         plt.ylim(1e-9, 1e-5) # for flux
         plt.xlim(2, 7)
         plt.yscale('log')
 
-        #cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", [ "dimgrey", "olive", "forestgreen","yellowgreen"]) #["white",  "dimgray",  "mediumslateblue",  "cyan", "yellow", "red"]
-        cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", [ "navy", "deepskyblue", "lightgrey"])
+        #cmap = matplotlib.colors.LinearSegmentedColormap.from_list("",
+        #["dimgrey", "olive", "forestgreen","yellowgreen"])
+        #["white",  "dimgray",  "mediumslateblue",  "cyan", "yellow", "red"]
+        cmap = matplotlib.colors.LinearSegmentedColormap.from_list("", ["navy", "deepskyblue", "lightgrey"])
 
 
         bestfit_f, _ = self.minimize__lnL()
@@ -336,14 +367,16 @@ class Likelihood():
         # common x for castro object initialization
         f_Ebin = np.linspace(0, 2, 1000)
 
-
+        exposuremap = ICECUBE_EXPOSURE_LIBRARY.get_exposure('IC86-2012', 2.28)
 
         for idx_E in range(self.Ebinmin, self.Ebinmax):
             # exposuremap assuming alpha = 2.28 (numu) to convert bestfit f_astro to flux
-            exposuremap_E = WeightedAeff('IC86-2012', 2.28).exposuremap[idx_E].copy()
+            exposuremap_E = exposuremap[idx_E].copy()
             exposuremap_E[self.idx_mask] = hp.UNSEEN
             exposuremap_E = hp.ma(exposuremap_E)
-            factor_f2flux = self.Ncount[idx_E] / (exposuremap_E.mean() * 1e4 * Defaults.DT_SECONDS * self.N_yr * 4 * np.pi * self.f_sky * Defaults.map_dlogE * np.log(10.)) * Defaults.map_E_center[idx_E]
+            factor_f2flux = self.Ncount[idx_E] / (exposuremap_E.mean() * 1e4 * Defaults.DT_SECONDS *
+                                                  self.N_yr * 4 * np.pi * self.f_sky * Defaults.map_dlogE *
+                                                  np.log(10.)) * Defaults.map_E_center[idx_E]
 
             idx_bestfit_f = idx_E - self.Ebinmin
             lnl_max = self.log_likelihood_Ebin(bestfit_f[idx_bestfit_f], idx_E)
@@ -356,13 +389,17 @@ class Likelihood():
             # if this bin is significant, plot the 1 sigma interval
             if TS_Ebin > TS_threshold:
                 f_lo, f_hi = castro.getInterval(0.32)
-                plt.errorbar(Defaults.map_logE_center[idx_E], bestfit_f[idx_bestfit_f] * factor_f2flux, yerr=[[(bestfit_f[idx_bestfit_f]-f_lo) * factor_f2flux], [(f_hi-bestfit_f[idx_bestfit_f]) * factor_f2flux]], xerr=Defaults.map_dlogE/2., color='k')
+                plt.errorbar(Defaults.map_logE_center[idx_E], bestfit_f[idx_bestfit_f] * factor_f2flux,
+                             yerr=[[(bestfit_f[idx_bestfit_f]-f_lo) * factor_f2flux],
+                                   [(f_hi-bestfit_f[idx_bestfit_f]) * factor_f2flux]],
+                             xerr=Defaults.map_dlogE/2., color='k')
                 f_select_lo, f_select_hi = castro.getInterval(coloralphalimit)
 
             # else plot the 2 sigma upper limit
             else:
                 f_hi = castro.getLimit(0.05)
-                plt.errorbar(Defaults.map_logE_center[idx_E], f_hi * factor_f2flux, yerr=f_hi * factor_f2flux * 0.2, xerr=Defaults.map_dlogE/2.,  uplims=True, color='k')
+                plt.errorbar(Defaults.map_logE_center[idx_E], f_hi * factor_f2flux, yerr=f_hi * factor_f2flux * 0.2,
+                             xerr=Defaults.map_dlogE/2., uplims=True, color='k')
                 f_select_lo, f_select_hi = 0, castro.getLimit(coloralphalimit)
 
 
@@ -371,15 +408,14 @@ class Likelihood():
             f_select = np.linspace(f_select_lo, f_select_hi, colorfbin+1)
 
             for idx_f_select, _f_select in enumerate(f_select[:-1]):
-               dlnl[idx_f_select][0] = self.log_likelihood_Ebin(_f_select, idx_E) - lnl_max
-
+                dlnl[idx_f_select][0] = self.log_likelihood_Ebin(_f_select, idx_E) - lnl_max
 
             y_select = f_select * factor_f2flux
-            m = plt.pcolormesh([Defaults.map_logE_edge[idx_E], Defaults.map_logE_edge[idx_E+1]],y_select,  dlnl,
-                cmap=cmap, vmin=-2.5, vmax=0., linewidths=0, edgecolors='none')
+            m = plt.pcolormesh([Defaults.map_logE_edge[idx_E], Defaults.map_logE_edge[idx_E+1]], y_select, dlnl,
+                               cmap=cmap, vmin=-2.5, vmax=0., linewidths=0, edgecolors='none')
 
         cbar = plt.colorbar(m)
-        cbar.ax.set_ylabel('Delta logL', rotation=90,fontsize=16,labelpad=15)
+        cbar.ax.set_ylabel('Delta logL', rotation=90, fontsize=16, labelpad=15)
         plt.savefig(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'Fig_sedlnl.png'))
 
 

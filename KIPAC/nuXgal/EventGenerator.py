@@ -6,8 +6,7 @@ import numpy as np
 from . import Defaults
 from . import file_utils
 from .Generator import AtmGenerator, AstroGenerator_v2
-from .file_utils import write_maps_to_fits, read_maps_from_fits
-from .WeightedAeff import WeightedAeff
+from .WeightedAeff import ICECUBE_EXPOSURE_LIBRARY
 
 
 # dN/dE \propto E^alpha
@@ -35,12 +34,21 @@ class EventGenerator():
         cosz = file_utils.read_cosz_from_txt(coszenith_path, Defaults.NEbin)
         self.nevts = np.sum(cosz[:, :, 1], axis=1)
         self._atm_gen = AtmGenerator(Defaults.NEbin, coszenith=cosz, nevents_expected=self.nevts)
-
+        self.astroModel = None
+        self._astro_gen = None
+        self.Aeff_max = None
         if astroModel is not None:
             self.initializeAstro(astroModel)
 
 
     def initializeAstro(self, astroModel):
+        """Initialize the event generate for a particular astrophysical model
+
+        Parameters
+        ----------
+        astroModel : `str`
+            The astrophysical model we are using
+        """
 
         self.astroModel = astroModel
 
@@ -57,11 +65,11 @@ class EventGenerator():
             spectralIndex = 2.89
 
         else:
-            print ("Unknown astro model. Use 'numu' as default value")
+            print("Unknown astro model. Use 'numu' as default value")
             dN_dE_astro = lambda E_GeV: 1.44E-18 * (E_GeV / 100e3)**(-2.28)
             spectralIndex = 2.28
 
-        aeff = WeightedAeff(self.year, spectralIndex).exposuremap
+        aeff = ICECUBE_EXPOSURE_LIBRARY.get_exposure(self.year, spectralIndex)
         self._astro_gen = AstroGenerator_v2(Defaults.NEbin, aeff=aeff)
         self.Aeff_max = aeff.max(1)
 
@@ -180,23 +188,38 @@ class EventGenerator():
 
 
     def SyntheticData(self, N_yr, f_diff, density_nu=None):
-        """ f_diff = 1 means injecting astro events that sum up to 100% of diffuse muon neutrino flux """
+        """Generate Synthetic Data
+
+        Parameters
+        ----------
+        N_yr : `float`
+            Number of years of data to generate
+        f_diff : `float`
+            Fraction of astro events w.r.t. diffuse muon neutrino flux,
+            f_diff = 1 means injecting astro events that sum up to 100% of diffuse muon neutrino flux
+        density_nu : `float`
+            Background neutrino density (FIXME, check this)
+
+        Returns
+        -----
+        counts_map : `np.ndarray`
+            Maps of simulated events
+        """
         if f_diff == 0.:
             Natm = np.random.poisson(self.nevts * N_yr)
             self._atm_gen.nevents_expected.set_value(Natm, clear_parent=False)
             countsmap = self._atm_gen.generate_event_maps(1)[0]
             return countsmap
 
-        else:
-            assert (self.astroModel is not None), "EventGenerator: no astrophysical model"
-            # generate astro maps
-            Nastro = np.random.poisson(self.Nastro_1yr_Aeffmax * N_yr * f_diff)
-            astro_map = self.astroEvent_galaxy(Nastro, density_nu)
+        assert (self.astroModel is not None), "EventGenerator: no astrophysical model"
+        # generate astro maps
+        Nastro = np.random.poisson(self.Nastro_1yr_Aeffmax * N_yr * f_diff)
+        astro_map = self.astroEvent_galaxy(Nastro, density_nu)
 
-            # generate atmospheric eventmaps
-            Natm = np.random.poisson(self.nevts * N_yr) - Nastro
-            Natm[np.where(Natm < 0)] = 0.
-            self._atm_gen.nevents_expected.set_value(Natm, clear_parent=False)
-            atm_map = self._atm_gen.generate_event_maps(1)[0]
+        # generate atmospheric eventmaps
+        Natm = np.random.poisson(self.nevts * N_yr) - Nastro
+        Natm[np.where(Natm < 0)] = 0.
+        self._atm_gen.nevents_expected.set_value(Natm, clear_parent=False)
+        atm_map = self._atm_gen.generate_event_maps(1)[0]
 
-            return (atm_map + astro_map)
+        return atm_map + astro_map

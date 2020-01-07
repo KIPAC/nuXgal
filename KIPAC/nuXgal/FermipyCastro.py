@@ -41,7 +41,7 @@ def twosided_cl_to_dlnl(cl):
     return 0.5 * np.power(np.sqrt(2.) * special.erfinv(cl), 2)
 
 
-class Interpolator(object):
+class Interpolator:
     """ Helper class for interpolating a 1-D function from a
     set of tabulated values.
 
@@ -135,7 +135,7 @@ class Interpolator(object):
         return y
 
 
-class LnLFn(object):
+class LnLFn:
     """Helper class for interpolating a 1-D log-likelihood function from a
     set of tabulated values.
     """

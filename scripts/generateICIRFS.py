@@ -6,7 +6,7 @@ import healpy as hp
 from KIPAC.nuXgal import Defaults
 from KIPAC.nuXgal import file_utils
 from KIPAC.nuXgal import FigureDict
-from KIPAC.nuXgal.WeightedAeff import WeightedAeff
+from KIPAC.nuXgal.WeightedAeff import ICECUBE_EXPOSURE_LIBRARY
 
 parser = argparse.ArgumentParser()
 
@@ -90,6 +90,6 @@ if __name__ == '__main__':
         countsmap = countsmap + generateCountsmap(year)
 
         for spectralIndex in [3.7, 2.28, 2.89]:
-            WeightedAeff(year=year, spectralIndex=spectralIndex)
+            ICECUBE_EXPOSURE_LIBRARY.get_exposure(year=year, spectralIndex=spectralIndex)
 
     file_utils.write_maps_to_fits(countsmap, countsmap3yr_format)

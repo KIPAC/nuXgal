@@ -1,7 +1,7 @@
 """Utility clases for nuXgal"""
 
-import numpy as np
 import os
+import numpy as np
 
 def makedir_safe(filepath):
     """Make a directory for a file and catch exceptions if it already exists"""
