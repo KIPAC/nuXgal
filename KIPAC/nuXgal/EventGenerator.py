@@ -30,7 +30,7 @@ class EventGenerator():
         """C'tor
         """
         self.year = year
-        coszenith_path = os.path.join(Defaults.NUXGAL_IRF_DIR, 'Ncos_theta_'+year+'_'+'{i}.txt')
+        coszenith_path = Defaults.NCOSTHETA_FORMAT.format(year=year, ebin='{i}')
         cosz = file_utils.read_cosz_from_txt(coszenith_path, Defaults.NEbin)
         self.nevts = np.sum(cosz[:, :, 1], axis=1)
         self._atm_gen = AtmGenerator(Defaults.NEbin, coszenith=cosz, nevents_expected=self.nevts)

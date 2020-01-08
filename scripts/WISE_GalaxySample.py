@@ -15,7 +15,7 @@ def computeGalaxymap(galaxySampleFile):
     galaxymap = np.zeros(hp.pixelfunc.nside2npix(Defaults.NSIDE))
     for i in index_map_pixel:
         galaxymap[i] += 1.
-    fitspath = os.path.join(Defaults.NUXGAL_ANCIL_DIR, 'WISE_galaxymap.fits')
+    fitspath = Defaults.GALAXYMAP_FORMAT.format(galaxyName="WISE")
     hp.fitsfunc.write_map(fitspath, galaxymap, overwrite=True)
 
 
@@ -39,7 +39,7 @@ def computeAlm(galaxySampleFile):
     galaxymap = hp.ma(galaxymap)
     galaxymap_od = galaxymap / galaxymap.mean() - 1.
     alm = hp.map2alm(galaxymap_od)
-    fitspath = os.path.join(Defaults.NUXGAL_ANCIL_DIR, 'WISE_galaxyalm.fits')
+    fitspath = Defaults.GALAXYALM_FORMAT.format(galaxyName="WISE")
     hp.fitsfunc.write_alm(fitspath, alm, lmax = Defaults.MAX_L, overwrite=True)
 
 

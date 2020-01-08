@@ -12,7 +12,7 @@ from KIPAC.nuXgal import Defaults
 from KIPAC.nuXgal.file_utils import read_maps_from_fits, write_maps_to_fits
 from KIPAC.nuXgal.EventGenerator import EventGenerator
 from KIPAC.nuXgal.Likelihood import Likelihood
-from KIPAC.nuXgal.GalaxySample import GalaxySample
+from KIPAC.nuXgal.GalaxySample import GALAXY_LIBRARY
 from KIPAC.nuXgal.NeutrinoSample import NeutrinoSample
 
 
@@ -33,7 +33,7 @@ def CompareNeutrinoMaps(energyBin=2, plotcount=False, plotoverdensity=False, plo
     #IC3yr.updateMask(Defaults.idx_muon)
 
     # generate synthetic data with astrophysical events from galaxies
-    gs = GalaxySample('analy')
+    gs = GALAXY_LIBRARY.get_sample('analy')
     # generate data year by year as effective areas are different
     countsmap = np.zeros((Defaults.NEbin, Defaults.NPIXEL))
 
@@ -121,7 +121,7 @@ def CompareNeutrinoMaps(energyBin=2, plotcount=False, plotoverdensity=False, plo
 
 
 def GalaxySampleCharacters(plotWISEmap=True, plotpowerspectrum=True):
-    gs_WISE = GalaxySample('WISE')
+    gs_WISE = GALAXY_LIBRARY.get_sample('WISE')
 
     if plotWISEmap:
         plt.figure(figsize = (8,6))
@@ -134,7 +134,7 @@ def GalaxySampleCharacters(plotWISEmap=True, plotpowerspectrum=True):
         plt.savefig(testfigpath+'WISE_galaxymap.pdf')
 
     if plotpowerspectrum:
-        gs_analy = GalaxySample('analy')
+        gs_analy = GALAXY_LIBRARY.get_sample('analy')
         plt.figure(figsize = (8,6))
         matplotlib.rc('font', **font)
         matplotlib.rc('legend', **legendfont)
@@ -247,5 +247,5 @@ if __name__ == '__main__':
     #ns = IC3yr
     #N_yr = 3
     #ns = NeutrinoSample()
-    #ns.inputCountsmap(EventGenerator('IC86-2012', 'numu').SyntheticData(10., 1., density_nu=GalaxySample('WISE').density))
+    #ns.inputCountsmap(EventGenerator('IC86-2012', 'numu').SyntheticData(10., 1., density_nu=GALAXY_LIBRARY.get_sample('WISE').density))
     #BestfitModel(ns=ns, N_yr=N_yr, galaxyName='WISE', lmin=50, plotMCMC=False, plotSED=True)

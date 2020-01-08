@@ -14,9 +14,9 @@ from scipy.stats import norm, distributions
 
 from .EventGenerator import EventGenerator
 from . import Defaults
-from .GalaxySample import GalaxySample
 from .NeutrinoSample import NeutrinoSample
 from .FermipyCastro import LnLFn
+from .GalaxySample import GALAXY_LIBRARY
 from .Exposure import ICECUBE_EXPOSURE_LIBRARY
 
 def significance(chi_square, dof):
@@ -73,7 +73,7 @@ class Likelihood():
             minimum of l to be taken into account in likelihood
         """
 
-        self.gs = GalaxySample(galaxyName)
+        self.gs = GALAXY_LIBRARY.get_sample(galaxyName)
         self.anafastMask()
         self.Ebinmin = Ebinmin
         self.Ebinmax = Ebinmax # np.min([np.where(Ncount != 0)[0][-1]+1, 5])

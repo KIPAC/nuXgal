@@ -56,5 +56,21 @@ idx_muon = np.where(exposuremap_theta > np.radians(85.))
 
 
 # Format strings for file paths
-WEIGHTED_AEFF_FORMAT = os.path.join(Defaults.NUXGAL_IRF_DIR, 'WeightedAeff_{year}_{specIndex}_{ebin}.fits')
-TABULATED_AEFF_FORMAT = os.path.join(Defaults.NUXGAL_IRF_DIR, '{year}-TabulatedAeff.fits')
+NCOSTHETA_FORMAT = os.path.join(NUXGAL_IRF_DIR, 'Ncos_theta_{year}_{ebin}.txt')
+WEIGHTED_AEFF_FORMAT = os.path.join(NUXGAL_IRF_DIR, 'WeightedAeff_{year}_{specIndex}_{ebin}.fits')
+TABULATED_AEFF_FORMAT = os.path.join(NUXGAL_IRF_DIR, '{year}-TabulatedAeff.fits')
+
+ANALYTIC_CL_PATH = os.path.join(NUXGAL_ANCIL_DIR, 'Cl_ggRM.dat')
+GALAXYMAP_FORMAT = os.path.join(NUXGAL_ANCIL_DIR, '{galaxyName}_galaxymap.fits')
+GALAXYALM_FORMAT = os.path.join(NUXGAL_ANCIL_DIR, '{galaxyName}_overdensityalm.fits')
+
+GALAXYMAP_FIG_FORMAT =  os.path.join(NUXGAL_PLOT_DIR, 'test_{galaxyName}_galaxy.pdf')
+TESTFIG_PATH = os.path.join(NUXGAL_PLOT_DIR, 'test')
+
+SYNTHETIC_EVTMAP_ASTRO_FORMAT = os.path.join(NUXGAL_SYNTHETICDATA_DIR, 'eventmap_astro{i}.fits')
+SYNTHETIC_EVTMAP_ATM_FORMAT = os.path.join(NUXGAL_SYNTHETICDATA_DIR, 'eventmap_atm{i}.fits')
+
+
+# Other things
+THREE_YEAR_NAMES = ['IC79-2010', 'IC86-2011', 'IC86-2012']
+STANDARD_SPECTRAL_INDICES = [3.7, 2.28, 2.89]

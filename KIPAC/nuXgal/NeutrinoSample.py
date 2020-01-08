@@ -1,4 +1,4 @@
-"""Analysis class"""
+"""Classes and functions to manage neutrino event samples"""
 
 import numpy as np
 
@@ -14,7 +14,7 @@ from .plot_utils import FigureDict
 
 
 class NeutrinoSample():
-    """Neutrino class"""
+    """Neutrino event sample class"""
 
     def __init__(self):
         """C'tor"""

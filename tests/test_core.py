@@ -18,7 +18,7 @@ from KIPAC.nuXgal import hp_utils
 
 from KIPAC.nuXgal import FigureDict
 
-from KIPAC.nuXgal.GalaxySample import GalaxySample
+from KIPAC.nuXgal.GalaxySample import GALAXY_LIBRARY
 
 from KIPAC.nuXgal.NeutrinoSample import NeutrinoSample
 
@@ -44,7 +44,7 @@ for dirname in [Defaults.NUXGAL_SYNTHETICDATA_DIR, Defaults.NUXGAL_PLOT_DIR]:
 # --- EventGenerator tests ---
 def astroEvent_galaxy(f_diff = 1.):
     eg = EventGenerator(year='IC86-2012', astroModel='numu')
-    gs = GalaxySample('analy')
+    gs = GALAXY_LIBRARY.get_sample('analy')
     Nastro = np.random.poisson(eg.Nastro_1yr_Aeffmax * f_diff)
     print (Nastro)
     eventmap = eg.astroEvent_galaxy(Nastro, gs.density)
@@ -162,7 +162,7 @@ def test_PowerSpectrum():
     ns_atm = NeutrinoSample()
     ns_atm.inputData(bgpath)
 
-    gs = GalaxySample('analy')
+    gs = GALAXY_LIBRARY.get_sample('analy')
 
 
     if MAKE_TEST_PLOTS:
@@ -183,7 +183,7 @@ def test_CrossCorrelation():
 
 
 
-    gs = GalaxySample('analy')
+    gs = GALAXY_LIBRARY.get_sample('analy')
     w_cross = ns_astro.getCrossCorrelation(gs.overdensityalm)
 
     if MAKE_TEST_PLOTS:
@@ -211,8 +211,8 @@ def test_Demonstration():
     Demonstration of concept
     """
     randomSeed = 45
-    gs = GalaxySample()
-    cl_galaxy = gs.getCL('analy')
+    gs = GALAXY_LIBRARY.get_sample('analy')
+    cl_galaxy = gs.analyCL
     cf = Analyze(gs.getOverdensity('analy'))
 
     # source_1

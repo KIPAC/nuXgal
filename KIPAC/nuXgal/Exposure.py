@@ -1,4 +1,4 @@
-"""A class to computed the spectrum-weighed effective area for IceCube Neutrino events"""
+"""Classes and functions to manage compute the exposure for IceCube event classes"""
 
 import os
 
