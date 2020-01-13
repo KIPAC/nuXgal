@@ -138,6 +138,7 @@ class AtmGenerator(Cache):
     def _cosz_cdf(self):
         N_coszenith = self.coszenith()
         grid_cdf = np.linspace(-1, 1, 300)
+
         dgrid_cdf = grid_cdf[1:] - grid_cdf[0:-1]
         cdf_list = [build_cdf(N_coszenith[i], grid_cdf, dgrid_cdf) for i in range(self._nmap)]
         return cdf_list

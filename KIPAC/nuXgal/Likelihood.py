@@ -83,7 +83,7 @@ class Likelihood():
 
         # compute or load w_atm distribution
         if computeSTD:
-            self.computeAtmophericEventDistribution(N_re=300, writeMap=True)
+            self.computeAtmophericEventDistribution(N_re=500, writeMap=True)
         else:
             #w_atm_mean_file = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,  'w_atm_mean' + '_' + str(self.N_yr) + '.txt'))
             #self.w_atm_mean = w_atm_mean_file.reshape((Defaults.NEbin, Defaults.NCL))
@@ -137,19 +137,23 @@ class Likelihood():
         w_cross = np.zeros((N_re, Defaults.NEbin, 3 * Defaults.NSIDE))
         Ncount_av = np.zeros(Defaults.NEbin)
         ns = NeutrinoSample()
+        eg_2010 = EventGenerator('IC79-2010')
+        eg_2011 = EventGenerator('IC86-2011')
+        eg_2012 = EventGenerator('IC86-2012')
+        """
         if self.N_yr != 3:
             eg = EventGenerator()
         else:
             eg_2010 = EventGenerator('IC79-2010')
             eg_2011 = EventGenerator('IC86-2011')
             eg_2012 = EventGenerator('IC86-2012')
-
+        """
         for iteration in np.arange(N_re):
             print("iter ", iteration)
 
             #Nastro = np.random.poisson(eg.Nastro_1yr_Aeffmax * N_yr * 1.)
             #eventmap_atm = eg.astroEvent_galaxy(Nastro, self.gs.density)
-
+            """
             if self.N_yr != 3:
                 eventnumber_Ebin = np.random.poisson(eg.nevts * self.N_yr)
                 eg._atm_gen.nevents_expected.set_value(eventnumber_Ebin, clear_parent=False)
@@ -160,7 +164,12 @@ class Likelihood():
                 eg_2011._atm_gen.nevents_expected.set_value(np.random.poisson(eg_2011.nevts * 1.), clear_parent=False)
                 eg_2012._atm_gen.nevents_expected.set_value(np.random.poisson(eg_2012.nevts * 1.), clear_parent=False)
                 eventmap_atm = eg_2010._atm_gen.generate_event_maps(1)[0] + eg_2011._atm_gen.generate_event_maps(1)[0] + eg_2012._atm_gen.generate_event_maps(1)[0]
+            """
 
+            eg_2010._atm_gen.nevents_expected.set_value(np.random.poisson(eg_2010.nnus * self.N_yr / 3.), clear_parent=False)
+            eg_2011._atm_gen.nevents_expected.set_value(np.random.poisson(eg_2011.nnus * self.N_yr / 3.), clear_parent=False)
+            eg_2012._atm_gen.nevents_expected.set_value(np.random.poisson(eg_2012.nnus * self.N_yr / 3.), clear_parent=False)
+            eventmap_atm = eg_2010._atm_gen.generate_event_maps(1)[0] + eg_2011._atm_gen.generate_event_maps(1)[0] + eg_2012._atm_gen.generate_event_maps(1)[0]
             ns.inputCountsmap(eventmap_atm)
             ns.updateMask(self.idx_mask)
             w_cross[iteration] = ns.getCrossCorrelation(self.gs.overdensityalm)
@@ -284,6 +293,7 @@ class Likelihood():
         TS_array : `np.array`
             The array of TS values
         """
+        """
         if self.N_yr != 3:
             eg = EventGenerator(year='IC86-2012', astroModel=astroModel)
 
@@ -291,13 +301,24 @@ class Likelihood():
             eg_2010 = EventGenerator('IC79-2010', astroModel=astroModel)
             eg_2011 = EventGenerator('IC86-2011', astroModel=astroModel)
             eg_2012 = EventGenerator('IC86-2012', astroModel=astroModel)
+        """
+
+        eg_2010 = EventGenerator('IC79-2010', astroModel=astroModel)
+        eg_2011 = EventGenerator('IC86-2011', astroModel=astroModel)
+        eg_2012 = EventGenerator('IC86-2012', astroModel=astroModel)
+
         ns = NeutrinoSample()
         TS_array = np.zeros(N_re)
         for i in range(N_re):
+            """
             if self.N_yr != 3:
                 datamap = eg.SyntheticData(self.N_yr, f_diff=f_diff, density_nu=self.gs.density)
             else:
                 datamap = eg_2010.SyntheticData(1., f_diff=f_diff, density_nu=self.gs.density) + eg_2011.SyntheticData(1., f_diff=f_diff, density_nu=self.gs.density) + eg_2012.SyntheticData(1., f_diff=f_diff, density_nu=self.gs.density)
+            """
+
+            datamap = eg_2010.SyntheticData(self.N_yr/3., f_diff=f_diff, density_nu=self.gs.density) + eg_2011.SyntheticData(self.N_yr/3., f_diff=f_diff, density_nu=self.gs.density) + eg_2012.SyntheticData(self.N_yr/3., f_diff=f_diff, density_nu=self.gs.density)
+
             ns.inputCountsmap(datamap)
             self.inputData(ns)
             minimizeResult = (self.minimize__lnL())
@@ -475,5 +496,5 @@ class Likelihood():
 
         flat_samples = reader.get_chain(discard=100, thin=15, flat=True)
         #print(flat_samples.shape)
-        fig = corner.corner(flat_samples, labels=labels, truths=truths)
+        fig = corner.corner(flat_samples, labels=labels)#, truths=truths)
         fig.savefig(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'Fig_MCMCcorner.pdf'))

@@ -33,7 +33,7 @@ for dirname in [data_dir, irf_dir, plot_dir]:
 
 def geneateNcos_thetaFile(year):
 
-    Nzenith_bin = 60
+    Nzenith_bin = 100
     N_coszenith = np.zeros((len(Defaults.map_logE_center), Nzenith_bin))
 
     for file in [os.path.join(icecube_data_dir, year + '-events.txt')]:
@@ -45,7 +45,7 @@ def geneateNcos_thetaFile(year):
         for i in np.arange(len(Defaults.map_logE_center)):
             """ use healpy convention: theta = 180 - zenith_IceCube """
             N_coszenith_i, cosZenithBinEdges =\
-                np.histogram(np.cos(np.pi - AtmBG_file[:, 6][_index_map_logE == i] * np.pi / 180.), Nzenith_bin, (-1, 1))
+                np.histogram(np.cos(np.pi - AtmBG_file[:, 6][_index_map_logE == i] * np.pi / 180.), Nzenith_bin, (-1, 1)) 
             N_coszenith[i] += N_coszenith_i
 
 

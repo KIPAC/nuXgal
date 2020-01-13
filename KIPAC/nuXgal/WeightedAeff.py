@@ -40,7 +40,10 @@ class WeightedAeff():
         # effective area, 200 in cos zenith, 70 in E
         self.Aeff_table = Aeff_file[:, 4]
         Emin_eff = np.reshape(Aeff_file[:, 0], (70, 200))[:, 0]
+        Emax_eff = np.reshape(Aeff_file[:, 1], (70, 200))[:, 0]
+
         self.Emin_eff = Emin_eff
+        self.Emax_eff = Emax_eff
         self.Ec_eff_len = len(Emin_eff)
         logE_eff = np.log10(Emin_eff)
         self.dlogE_eff = np.mean(logE_eff[1:] - logE_eff[0:-1])
@@ -57,9 +60,16 @@ class WeightedAeff():
         for i in range(Defaults.NEbin):
             jstart = jend
             jend = np.searchsorted(self.Emin_eff, Defaults.map_E_edge[i+1])
-            factor_i = (np.power(Defaults.map_E_edge[i+1], 1 - spectralIndex) - np.power(Defaults.map_E_edge[i], 1 - spectralIndex)) / (1 - spectralIndex) / (np.log(10.) * self.dlogE_eff)
+            #factor_i = (np.power(Defaults.map_E_edge[i+1], 1 - spectralIndex) - np.power(Defaults.map_E_edge[i], 1 - spectralIndex)) / (1 - spectralIndex) / (np.log(10.) * self.dlogE_eff)
             #print (i, jstart, jend, self.Emin_eff[jstart], self.Emin_eff[jend-1], Defaults.map_E_edge[i], Defaults.map_E_edge[i+1], factor_i)
+            #for j in np.arange(jstart, jend):
+            #    weightedAeff[i] += np.power(self.Ec_eff[j], 1 - spectralIndex) / self.Aeff_table[j * 200 + self.index_coszenith]
+            #weightedAeff[i] = factor_i / weightedAeff[i]
+
+            factor_i = 1. / (np.power(Defaults.map_E_edge[i+1], 1 - spectralIndex) - np.power(Defaults.map_E_edge[i], 1 - spectralIndex))
             for j in np.arange(jstart, jend):
-                weightedAeff[i] += np.power(self.Ec_eff[j], 1 - spectralIndex) / self.Aeff_table[j * 200 + self.index_coszenith]
-            weightedAeff[i] = factor_i / weightedAeff[i]
+                weightedAeff[i] += self.Aeff_table[j * 200 + self.index_coszenith] * (np.power(self.Emax_eff[j], 1 - spectralIndex) - np.power(self.Emin_eff[j], 1 - spectralIndex))
+            weightedAeff[i] *= factor_i
+
+            #weightedAeff[i] = self.Aeff_table[jstart * 200 + self.index_coszenith]
         return weightedAeff

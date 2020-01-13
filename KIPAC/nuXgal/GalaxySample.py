@@ -42,7 +42,6 @@ class GalaxySample():
         self.overdensityalm = hp.fitsfunc.read_alm(overdensityalm_path)
         self.density = self.galaxymap / np.sum(self.galaxymap)
         self.initiateGalaxySample()
-        self.f_sky = 1. - len(self.idx_galaxymask[0]) / float(Defaults.NPIXEL)
 
         #_galaxymap = self.galaxymap.copy()
         #_galaxymap[self.idx_galaxymask] = hp.UNSEEN
@@ -59,12 +58,18 @@ class GalaxySample():
             #WISE-2MASS galaxy sample map based on ~5M galaixes
             c_icrs = SkyCoord(ra=Defaults.exposuremap_phi * u.radian, dec=(np.pi/2 - Defaults.exposuremap_theta)*u.radian, frame='icrs')
             self.idx_galaxymask = np.where(np.abs(c_icrs.galactic.b.degree) < 10)
+            self.f_sky = 1. - len(self.idx_galaxymask[0]) / float(Defaults.NPIXEL)
 
         if self.galaxyName == 'analy':
             #simulated galaxy sample based on analytical power spectrum
             analyCLpath = os.path.join(Defaults.NUXGAL_ANCIL_DIR, 'Cl_ggRM.dat')
             self.analyCL = np.loadtxt(analyCLpath)
             self.idx_galaxymask = np.where(False)
+            self.f_sky = 1. - len(self.idx_galaxymask[0]) / float(Defaults.NPIXEL)
+
+        #if self.galaxyName == 'CIB':
+        #    self.f_sky = 0.18616
+        #    self.idx_galaxymask = np.where(False)
 
 
 
