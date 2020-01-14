@@ -19,12 +19,10 @@ from . import Defaults
 class GalaxySample():
     """Class to organize galaxy samples for cross correlation
     """
-    def __init__(self, galaxyName, idx_galaxymask, **kwargs):
+    def __init__(self, galaxyName, idx_galaxymask):
         """C'tor
 
         Currently this implements:
-        WISE : WISE-2MASS galaxy sample map based on ~5M galaixes
-        analy : simulated galaxy sample based on analytical power spectrum
         flat : Poisson generated flat galaxy sample
 
         Parameters
@@ -43,14 +41,11 @@ class GalaxySample():
         self.density = self.galaxymap / np.sum(self.galaxymap)
         self.idx_galaxymask = idx_galaxymask
         self.f_sky = 1. - len(self.idx_galaxymask[0]) / float(Defaults.NPIXEL)
-        self.analyCL = kwargs.get('analyCL', None)
 
         #_galaxymap = self.galaxymap.copy()
         #_galaxymap[self.idx_galaxymask] = hp.UNSEEN
         #_galaxymap = hp.ma(_galaxymap)
         #self.overdensity = _galaxymap / np.mean(_galaxymap) - 1.
-
-
 
     def plotGalaxymap(self, plotmax=100):
         """Plot galaxy counts map for a particular sample
@@ -65,22 +60,61 @@ class GalaxySample():
         plt.savefig(testfigpath)
 
 
+class GalaxySample_Wise(GalaxySample):
+    """WISE Galaxy sample
+
+    WISE-2MASS galaxy sample map based on ~5M galaixes
+    """
+    @staticmethod
+    def mask():
+        """Contstruct and return the mask for this sample"""
+        c_icrs = SkyCoord(ra=Defaults.exposuremap_phi * u.radian,
+                          dec=(np.pi/2 - Defaults.exposuremap_theta)*u.radian, frame='icrs')
+        return np.where(np.abs(c_icrs.galactic.b.degree) < 10)
+
+    def __init__(self):
+        """C'tor"""
+        GalaxySample.__init__("WISE", self.mask())
 
 
-def GalaxyMask_WISE():
-    c_icrs = SkyCoord(ra=Defaults.exposuremap_phi * u.radian,
-                      dec=(np.pi/2 - Defaults.exposuremap_theta)*u.radian, frame='icrs')
-    return np.where(np.abs(c_icrs.galactic.b.degree) < 10)
+class GalaxySample_Analy(GalaxySample):
+    """Galaxy sample from analytic CL
+    
+    Simulated galaxy sample based on analytical power spectrum
+    """
+    @staticmethod
+    def mask():
+        """Contstruct and return the mask for this sample"""
+        return np.where(False)
 
-def GalaxyMask_AllSky():
-    return np.where(False)
+    def __init__(self):
+        """C'tor"""
+        GalaxySample.__init__("analy", self.mask())
+        self.analyCL = np.loadtxt(Defaults.ANALYTIC_CL_PATH)
 
 
-GALAXY_MASK_FUNC_DICT = dict(WISE=GalaxyMask_WISE,
-                             analy=GalaxyMask_AllSky)
+class GalaxySample_Flat(GalaxySample):
+    """Flat galaxy sample
+
+    Simulated flat galaxy sample
+    """
+    @staticmethod
+    def mask():
+        """Contstruct and return the mask for this sample"""
+        return np.where(False)
+
+    def __init__(self):
+        """C'tor"""
+        GalaxySample.__init__("flat", self.mask())
+         
+        
 
 class GalaxySampleLibrary:
     """Library of galaxy samples"""
+
+    galaxy_class_dict = dict(WISE:GalaxySample_Wise,
+                             analy:GalaxySample_Analy,
+                             flat:GalaxySample_Flat)
 
     def __init__(self, randomseed_galaxy=Defaults.randomseed_galaxy):
         """C'tor"""
@@ -105,18 +139,11 @@ class GalaxySampleLibrary:
     
     def get_sample(self, sampleName):
         """Get a particular sample by name"""       
-        if sampleName in self._gs_dict:
-            return self._gs_dict[sampleName]
-
-        mask_func = GALAXY_MASK_FUNC_DICT[sampleName]
-        mask = mask_func()
-        kw_ctor = {}
-        if sampleName == 'analy':
-            #simulated galaxy sample based on analytical power spectrum
-            kw_ctor['analyCL'] = np.loadtxt(Defaults.ANALYTIC_CL_PATH)
-        gs = GalaxySample(sampleName, mask, **kw_ctor)
-        self._gs_dict[sampleName] = gs
-        return gs
+        try: 
+            return self.galaxy_class_dict[sampleName]()
+        except KeyError:
+            print("Galaxy Sample %s not defined, options are %s" % (sampleName, str(self._gs_dict.keys())))
+        return None
 
     def generateGalaxy(self, N_g=2000000, write_map=True):
         """Generate a synthetic galaxy sample
@@ -144,6 +171,30 @@ class GalaxySampleLibrary:
             hp.fitsfunc.write_map(analy_galaxymap_path, analy_galaxymap, overwrite=True)
             overdensityalm_path = Defaults.GALAXYALM_FORMAT.format(galaxyName='analy')
             hp.fitsfunc.write_alm(overdensityalm_path, alm, overwrite=True)
+
+    def generateFlat(self, N_g=2000000, write_map=True):
+        """Generate a synthetic galaxy sample
+
+        Parameters
+        ----------
+        N_g : `int`
+            Number of galaxies to generate
+        write_map: `bool`
+            if True write the generate map to the ancilary data area
+        """
+        np.random.seed(self.randomseed_galaxy)
+        density_g = np.ones((Defaults.NPIXEL), float)
+        density_g /= density_g.sum()
+        expected_counts_map = density_g * N_g
+        np.random.seed(Defaults.randomseed_galaxy)
+
+        analy_galaxymap = np.random.poisson(expected_counts_map)
+        if write_map:
+            analy_galaxymap_path = Defaults.GALAXYMAP_FORMAT.format(galaxyName='flat')
+            hp.fitsfunc.write_map(analy_galaxymap_path, analy_galaxymap, overwrite=True)
+            overdensityalm_path = Defaults.GALAXYALM_FORMAT.format(galaxyName='flat')
+            hp.fitsfunc.write_alm(overdensityalm_path, alm, overwrite=True)
+
 
 
 GALAXY_LIBRARY = GalaxySampleLibrary(Defaults.randomseed_galaxy)

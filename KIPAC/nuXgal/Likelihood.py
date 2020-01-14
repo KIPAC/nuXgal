@@ -91,14 +91,12 @@ class Likelihood():
             #w_atm_mean_file = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,  'w_atm_mean' +
             #                                          '_' + str(self.N_yr) + '.txt'))
             #self.w_atm_mean = w_atm_mean_file.reshape((Defaults.NEbin, Defaults.NCL))
-            w_atm_std_file = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,
-                                                     'w_atm_std_' + self.gs.galaxyName + '_' +
-                                                     str(self.N_yr) + '.txt'))
+            w_atm_std_file = np.loadtxt(Defaults.SYNTHETIC_ATM_CROSS_CORR_STD_FORMAT.format(galaxyName=self.gs.galaxyName,
+                                                                                            nyear=str(self.N_yr)))
             self.w_atm_std = w_atm_std_file.reshape((Defaults.NEbin, Defaults.NCL))
             self.w_atm_std_square = self.w_atm_std ** 2
-            self.Ncount_atm = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,
-                                                      'Ncount_atm_after_masking_' + self.gs.galaxyName + '_' +
-                                                      str(self.N_yr) + '.txt'))
+            self.Ncount_atm = np.loadtxt(Defaults.SYNTHETIC_ATM_NCOUNTS_FORMAT.format(galaxyName=self.gs.galaxyName,
+                                                                                      nyear=str(self.N_yr)))
 
         self.w_std_square0 = np.zeros((Defaults.NEbin, Defaults.NCL))
         for i in range(Defaults.NEbin):
@@ -192,10 +190,10 @@ class Likelihood():
         if writeMap:
             #np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'w_atm_mean' + '_' + str(self.N_yr) + '.txt'),
             #           self.w_atm_mean)
-            np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'w_atm_std_' +
-                                    self.gs.galaxyName + '_' + str(self.N_yr) + '.txt'), self.w_atm_std)
-            np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'Ncount_atm_after_masking_' +
-                                    self.gs.galaxyName + '_' + str(self.N_yr) + '.txt'), self.Ncount_atm)
+            np.savetxt(Defaults.SYNTHETIC_ATM_CROSS_CORR_STD_FORMAT.format(galaxyName=self.gs.galaxyName,
+                                                                           nyear=str(self.N_yr)))
+            np.savetxt(Defaults.SYNTHETIC_ATM_NCOUNTS_FORMAT.format(galaxyName=self.gs.galaxyName,
+                                                                    nyear=str(self.N_yr)))
 
 
     def inputData(self, ns):
@@ -300,12 +298,12 @@ class Likelihood():
             The array of TS values
         """
         if self.N_yr != 3:
-            eg = EventGenerator(year='IC86-2012', astroModel=astroModel)
+            eg = EventGenerator(year='IC86-2012', galaxySample=self.gs, astroModel=astroModel)
 
         else:
-            eg_2010 = EventGenerator('IC79-2010', astroModel=astroModel)
-            eg_2011 = EventGenerator('IC86-2011', astroModel=astroModel)
-            eg_2012 = EventGenerator('IC86-2012', astroModel=astroModel)
+            eg_2010 = EventGenerator('IC79-2010', galaxySample=self.gs, astroModel=astroModel)
+            eg_2011 = EventGenerator('IC86-2011', galaxySample=self.gs, astroModel=astroModel)
+            eg_2012 = EventGenerator('IC86-2012', galaxySample=self.gs, astroModel=astroModel)
         ns = NeutrinoSample()
         TS_array = np.zeros(N_re)
         for i in range(N_re):
@@ -322,13 +320,13 @@ class Likelihood():
             TS_array[i] = minimizeResult[-1]
         if writeData:
             if f_diff == 0:
-                TSpath = os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'TS_' +\
-                                          str(f_diff) + '_' + self.gs.galaxyName +\
-                                          '_' + str(self.N_yr) + '.txt')
+                TSpath = Defaults.SYNTHETIC_TS_NULL_FORMAT(f_diff=str(f_diff),
+                                                           galaxyName=self.gs.galaxyName,
+                                                           nyear=str(self.N_yr))
             else:
-                TSpath = os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'TS_' +\
-                                          str(f_diff) + '_' + self.gs.galaxyName +\
-                                          '_' + str(self.N_yr) + '_'+astroModel + '.txt')
+                TSpath = Defaults.SYNTHETIC_TS_SIGNAL_FORMAT(f_diff=str(f_diff),
+                                                             galaxyName=self.gs.galaxyName,
+                                                             nyear=str(self.N_yr))
             np.savetxt(TSpath, TS_array)
         return TS_array
 
@@ -473,7 +471,8 @@ class Likelihood():
         ndim = self.Ebinmax - self.Ebinmin
         pos = 0.3 + np.random.randn(Nwalker, ndim) * 0.1
         nwalkers, ndim = pos.shape
-        backend = emcee.backends.HDFBackend(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'test.h5'))
+        backend = emcee.backends.HDFBackend(Defaults.CORNER_PLOT_FORMAT.format(galaxyName=self.gs.galaxyName,
+                                                                               nyear=str(self.N_yr)))
         backend.reset(nwalkers, ndim)
         sampler = emcee.EnsembleSampler(nwalkers, ndim, self.log_probability, backend=backend)
         sampler.run_mcmc(pos, Nstep, progress=True)
@@ -493,8 +492,8 @@ class Likelihood():
             The MC truth values
         """
 
-        reader = emcee.backends.HDFBackend(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'test.h5'))
-
+        reader = emcee.backends.HDFBackend(Defaults.CORNER_PLOT_FORMAT.format(galaxyName=self.gs.galaxyName,
+                                                                              nyear=str(self.N_yr)))
         if plotChain:
             fig, axes = plt.subplots(ndim, figsize=(10, 7), sharex=True)
             samples = reader.get_chain()

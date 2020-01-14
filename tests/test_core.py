@@ -43,8 +43,8 @@ for dirname in [Defaults.NUXGAL_SYNTHETICDATA_DIR, Defaults.NUXGAL_PLOT_DIR]:
 
 # --- EventGenerator tests ---
 def astroEvent_galaxy(f_diff = 1.):
-    eg = EventGenerator(year='IC86-2012', astroModel='numu')
     gs = GALAXY_LIBRARY.get_sample('analy')
+    eg = EventGenerator(year='IC86-2012', galaxySample=gs, astroModel='numu')
     Nastro = np.random.poisson(eg.Nastro_1yr_Aeffmax * f_diff)
     print (Nastro)
     eventmap = eg.astroEvent_galaxy(Nastro, gs.density)

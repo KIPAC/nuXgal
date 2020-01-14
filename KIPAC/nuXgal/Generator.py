@@ -164,65 +164,6 @@ class AtmGenerator(Cache):
 
 
 
-class AstroGenerator(Cache):
-    """Class to generate astrophysical events
-
-    The events are generated follow a pdf, and then down-selected based on the effective area
-    """
-    def __init__(self, nmap, **kwargs):
-        """C'tor
-
-        Parameters
-        ----------
-        nmap : `int`
-            Number of maps (i.e., energy bins) to consider
-        """
-        kwcopy = kwargs.copy()
-        self._nmap = nmap
-        self._nside = kwcopy.pop('nside', Defaults.NSIDE)
-        self._npix = hp.pixelfunc.nside2npix(self._nside)
-
-        self.nevents_expected = CachedArray(self, "_nevents", [self._nmap])
-        self.pdf = CachedArray(self, "_pdf", [self._npix])
-        self.aeff = CachedArray(self, "_aeff", [self._nmap, self._npix])
-        self.prob_reject = CachedArray(self, self._prob_reject, [self._nmap, self._npix])
-        self.mean_reject = CachedArray(self, self._mean_reject, [self._nmap])
-        Cache.__init__(self, **kwcopy)
-
-
-    def _prob_reject(self):
-        aeff_data = self.aeff()
-        max_aeff = aeff_data.max(1)
-        return (aeff_data.T / max_aeff).T
-
-    def _mean_reject(self):
-        return self.prob_reject().mean(1)
-
-    def generate_event_maps(self, n_trials, **kwargs):
-        """Generate a set of `healpy` maps
-
-        Parameters
-        ----------
-        nTrials : `int`
-            Number of trials to generay
-
-        Returns
-        -------
-        maps : `np.ndarray`
-            An array of (nTrials x self._nmap) synthetic maps
-        """
-        pdf_expand = np.expand_dims(self.pdf(), 0)
-        nevents_expand = np.expand_dims(self.nevents_expected()/self.mean_reject(), -1)
-
-        full_pdf = pdf_expand * nevents_expand
-        full_pdf *= self.prob_reject()
-        return hp_utils.vectorize_gen_syn_data(np.random.poisson,
-                                               full_pdf.clip(0, np.inf), n_trials, **kwargs)
-
-
-
-
-
 class AstroGenerator_v2(Cache):
     """Class to generate astrophysical events
 
@@ -241,20 +182,9 @@ class AstroGenerator_v2(Cache):
         self._nside = kwcopy.pop('nside', Defaults.NSIDE)
         self._npix = hp.pixelfunc.nside2npix(self._nside)
 
-        #self._ncl = kwcopy.pop('ncl', Defaults.NCL_galaxyInput)
-        #self._nalm = int((self._ncl) * (self._ncl+1) / 2)
-        #self.cl = CachedArray(self, "_cl", [1, self._ncl])
-
-
         self.normalized_counts_map = CachedArray(self, "_pdf", [self._npix])
         self.nevents_expected = CachedArray(self, "_nevents", [self._nmap])
         self.aeff = CachedArray(self, "_aeff", [self._nmap, self._npix])
-
-        #self.syn_alm_full = CachedArray(self, self._syn_alm_full, [self._nalm])
-        #self.syn_alm_fgal = CachedArray(self, self._syn_alm_fgal, [self._nalm])
-
-        #self.syn_overdensity_full = CachedArray(self, self._syn_overdensity_full, [self._npix])
-        #self.syn_overdensity_fgal = CachedArray(self, self._syn_overdensity_fgal, [self._npix])
 
         self.prob_reject = CachedArray(self, self._prob_reject, [self._nmap, self._npix])
         self.mean_reject = CachedArray(self, self._mean_reject, [self._nmap])
@@ -316,3 +246,18 @@ class AstroGenerator_v2(Cache):
                 event_map_list.append(observed_counts_map)
 
         return np.vstack(event_map_list).reshape((n_trials, self._nmap, self._npix))
+
+
+ASTROMODEL_LIBRARY = dict(numu=dict(prefactor=1.44E-18, spectralIndex=2.28),
+                          hese=dict(prefactor=6.45E-18/3., spectralIndex=2.89))
+
+def get_dnde_astro(astroModel):
+    if astroModel is None:
+        astroModel = 'numu'
+    pars = ASTROMODEL_LIBRARY[astroModel]
+    pf = pars['prefactor']
+    index = pars['spectralIndex']    
+    dN_dE_astro = lambda E_GeV: pf * (E_GeV / 100e3)**(-1*index)
+    return (pars, dN_dE_astro)
+
+

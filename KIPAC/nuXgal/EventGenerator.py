@@ -5,7 +5,7 @@ import numpy as np
 
 from . import Defaults
 from . import file_utils
-from .Generator import AtmGenerator, AstroGenerator_v2
+from .Generator import AtmGenerator, AstroGenerator_v2, get_dnde_astro
 from .Exposure import ICECUBE_EXPOSURE_LIBRARY
 
 
@@ -26,22 +26,24 @@ class EventGenerator():
 
     This can generate both atmospheric and astrophysical events
     """
-    def __init__(self, year='IC86-2012', astroModel=None):
+    def __init__(self, year='IC86-2012', galaxySample=None, astroModel=None)
         """C'tor
         """
         self.year = year
+                 
         coszenith_path = Defaults.NCOSTHETA_FORMAT.format(year=year, ebin='{i}')
         cosz = file_utils.read_cosz_from_txt(coszenith_path, Defaults.NEbin)
         self.nevts = np.sum(cosz[:, :, 1], axis=1)
         self._atm_gen = AtmGenerator(Defaults.NEbin, coszenith=cosz, nevents_expected=self.nevts)
         self.astroModel = None
-        self._astro_gen = None
+        self.gs = None
         self.Aeff_max = None
-        if astroModel is not None:
-            self.initializeAstro(astroModel)
+        self._astro_gen = None
+        if astroModel is not None and galaxySample is not None:
+            self.initializeAstro(astroModel, galaxySample)
 
 
-    def initializeAstro(self, astroModel):
+    def initializeAstro(self, astroModel, galaxySample):
         """Initialize the event generate for a particular astrophysical model
 
         Parameters
@@ -49,45 +51,20 @@ class EventGenerator():
         astroModel : `str`
             The astrophysical model we are using
         """
-
         self.astroModel = astroModel
+        self.gs = galaxySample
 
-        if astroModel == 'numu':
-            # calculate expected event number using IceCube diffuse neutrino flux
-            # in GeV^-1 cm^-2 s^-1 sr^-1, muon neutrino, 1908.09551
-            dN_dE_astro = lambda E_GeV: 1.44E-18 * (E_GeV / 100e3)**(-2.28)
-            spectralIndex = 2.28
-
-        elif astroModel == 'hese':
-            # calculate expected event number using IceCube HESE flux
-            # in GeV^-1 cm^-2 s^-1 sr^-1, three flavors / 3 for muon neutrinos, 1907.11266
-            dN_dE_astro = lambda E_GeV: 6.45E-18 * (E_GeV / 100e3)**(-2.89) / 3.
-            spectralIndex = 2.89
-
-        else:
-            print("Unknown astro model. Use 'numu' as default value")
-            dN_dE_astro = lambda E_GeV: 1.44E-18 * (E_GeV / 100e3)**(-2.28)
-            spectralIndex = 2.28
+        pars, dN_dE_astro = get_dnde_astro(self.astroModel)
+        spectralIndex = pars['spectralIndex']
 
         aeff = ICECUBE_EXPOSURE_LIBRARY.get_exposure(self.year, spectralIndex)
-        self._astro_gen = AstroGenerator_v2(Defaults.NEbin, aeff=aeff)
         self.Aeff_max = aeff.max(1)
-
-
-        # total expected number of events before cut, for one year data
-        self.Nastro_1yr_Aeffmax = np.zeros(Defaults.NEbin)
-        for i in np.arange(Defaults.NEbin):
-            self.Nastro_1yr_Aeffmax[i] = dN_dE_astro(10.**Defaults.map_logE_center[i]) *\
-                (10. ** Defaults.map_logE_center[i] * np.log(10.) * Defaults.map_dlogE) *\
-                (self.Aeff_max[i] * 1E4) * (333 * 24. * 3600) * 4 * np.pi
-
-
-
-        #self.nnus = np.zeros(Defaults.NEbin)
-        #index_north = np.where(cosz[0][:,0] > 0)
-        #for i in range(Defaults.NEbin):
-        #    self.nnus[i] = np.sum(cosz[i][index_north][:,1])
-
+        
+        self.Nastro_1yr_Aeffmax = dN_dE_astro(10.**Defaults.map_logE_center) *\
+            (10. ** Defaults.map_logE_center * np.log(10.) * Defaults.map_dlogE) *\
+            (self.Aeff_max * 1E4) * (333 * 24. * 3600) * 4 * np.pi
+        
+        self._astro_gen = AstroGenerator_v2(Defaults.NEbin, aeff=aeff, pdf=self.gs.density)
 
 
     @property
@@ -121,32 +98,6 @@ class EventGenerator():
         self._astro_gen.nevents_expected.set_value(intrinsicCounts, clear_parent=False)
         return self._astro_gen.generate_event_maps(1)[0]
 
-
-
-    def astroEvent_galaxy_powerlaw(self, Ntotal, normalized_counts_map, alpha, emin=1e2, emax=1e9):
-        """Generate astrophysical events from a power law
-        distribution
-
-        Parameters
-        ----------
-        density : `np.ndarray`
-            Galaxy density map, used as a pdf
-        Ntotal : `np.ndarray`
-            Total number of events
-        alpha : `float`
-            Power law index
-        emin : `float`
-        emin : `float`
-
-
-        Returns
-        -------
-        counts_map : `np.ndarray`
-            Maps of simulated events
-        """
-        energy = randPowerLaw(alpha, Ntotal, emin, emax)
-        intrinsicCounts = np.histogram(np.log10(energy), Defaults.map_logE_edge)
-        return self.astroEvent_galaxy(intrinsicCounts, normalized_counts_map)
 
 
     def atmBG_coszenith(self, eventNumber, energyBin):
@@ -197,8 +148,8 @@ class EventGenerator():
         f_diff : `float`
             Fraction of astro events w.r.t. diffuse muon neutrino flux,
             f_diff = 1 means injecting astro events that sum up to 100% of diffuse muon neutrino flux
-        density_nu : `float`
-            Background neutrino density (FIXME, check this)
+        density_nu : `np.ndarray`
+            Background neutrino density map
 
         Returns
         -----

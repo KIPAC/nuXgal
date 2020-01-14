@@ -89,7 +89,7 @@ if __name__ == '__main__':
         geneateNcos_thetaFile(year)
         countsmap = countsmap + generateCountsmap(year)
 
-        for spectralIndex in Defaults.STANDARD_SPECTRAL_INDICES
+        for spectralIndex in Defaults.STANDARD_SPECTRAL_INDICES:
             ICECUBE_EXPOSURE_LIBRARY.get_exposure(year=year, spectralIndex=spectralIndex)
 
     file_utils.write_maps_to_fits(countsmap, countsmap3yr_format)
