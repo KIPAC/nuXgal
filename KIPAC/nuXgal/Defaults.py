@@ -55,7 +55,7 @@ SYNTHETIC_ATM_NCOUNTS_FORMAT = os.path.join(NUXGAL_SYNTHETICDATA_DIR, 'Ncount_at
 SYNTHETIC_TS_NULL_FORMAT = os.path.join(NUXGAL_SYNTHETICDATA_DIR, 'TS_{f_diff}_{galaxyName}_{nyear}.txt')
 SYNTHETIC_TS_SIGNAL_FORMAT = os.path.join(NUXGAL_SYNTHETICDATA_DIR, 'TS_{f_diff}_{galaxyName}_{nyear}_{astroModel}.txt')
 
-CORNER_PLOT_FORMAT = os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'corner_{galaxyName}_{nyear}.txt')
+CORNER_PLOT_FORMAT = os.path.join(NUXGAL_SYNTHETICDATA_DIR, 'corner_{galaxyName}_{nyear}.txt')
 
 
 # Other things

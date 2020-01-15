@@ -29,9 +29,9 @@ class GalaxySample():
         ----------
         galaxyName : `str`
             Name for the sample, used to define the sample and specify output file paths
-        idx_galaxymask : 
+        idx_galaxymask :
             Used to ma
-        
+
         """
         self.galaxyName = galaxyName
         galaxymap_path = Defaults.GALAXYMAP_FORMAT.format(galaxyName=galaxyName)
@@ -74,12 +74,12 @@ class GalaxySample_Wise(GalaxySample):
 
     def __init__(self):
         """C'tor"""
-        GalaxySample.__init__("WISE", self.mask())
+        GalaxySample.__init__(self, "WISE", self.mask())
 
 
 class GalaxySample_Analy(GalaxySample):
     """Galaxy sample from analytic CL
-    
+
     Simulated galaxy sample based on analytical power spectrum
     """
     @staticmethod
@@ -89,7 +89,7 @@ class GalaxySample_Analy(GalaxySample):
 
     def __init__(self):
         """C'tor"""
-        GalaxySample.__init__("analy", self.mask())
+        GalaxySample.__init__(self, "analy", self.mask())
         self.analyCL = np.loadtxt(Defaults.ANALYTIC_CL_PATH)
 
 
@@ -106,21 +106,19 @@ class GalaxySample_Flat(GalaxySample):
     def __init__(self):
         """C'tor"""
         GalaxySample.__init__("flat", self.mask())
-         
-        
+
+
 
 class GalaxySampleLibrary:
     """Library of galaxy samples"""
 
-    galaxy_class_dict = dict(WISE:GalaxySample_Wise,
-                             analy:GalaxySample_Analy,
-                             flat:GalaxySample_Flat)
+    galaxy_class_dict = {'WISE':GalaxySample_Wise, 'analy':GalaxySample_Analy,  'flat':GalaxySample_Flat}
 
     def __init__(self, randomseed_galaxy=Defaults.randomseed_galaxy):
         """C'tor"""
         self._gs_dict = {}
         self.randomseed_galaxy = randomseed_galaxy
-        
+
     def keys(self):
         """Return the names of exposure maps"""
         return self._gs_dict.keys()
@@ -136,10 +134,10 @@ class GalaxySampleLibrary:
     def __getitem__(self, key):
         """Return a particular exposure map by name"""
         return self._gs_dict[key]
-    
+
     def get_sample(self, sampleName):
-        """Get a particular sample by name"""       
-        try: 
+        """Get a particular sample by name"""
+        try:
             return self.galaxy_class_dict[sampleName]()
         except KeyError:
             print("Galaxy Sample %s not defined, options are %s" % (sampleName, str(self._gs_dict.keys())))
@@ -198,4 +196,3 @@ class GalaxySampleLibrary:
 
 
 GALAXY_LIBRARY = GalaxySampleLibrary(Defaults.randomseed_galaxy)
-

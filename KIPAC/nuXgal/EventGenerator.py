@@ -26,11 +26,11 @@ class EventGenerator():
 
     This can generate both atmospheric and astrophysical events
     """
-    def __init__(self, year='IC86-2012', galaxySample=None, astroModel=None)
+    def __init__(self, year='IC86-2012', galaxySample=None, astroModel=None):
         """C'tor
         """
         self.year = year
-                 
+
         coszenith_path = Defaults.NCOSTHETA_FORMAT.format(year=year, ebin='{i}')
         cosz = file_utils.read_cosz_from_txt(coszenith_path, Defaults.NEbin)
         self.nevts = np.sum(cosz[:, :, 1], axis=1)
@@ -59,11 +59,11 @@ class EventGenerator():
 
         aeff = ICECUBE_EXPOSURE_LIBRARY.get_exposure(self.year, spectralIndex)
         self.Aeff_max = aeff.max(1)
-        
+
         self.Nastro_1yr_Aeffmax = dN_dE_astro(10.**Defaults.map_logE_center) *\
             (10. ** Defaults.map_logE_center * np.log(10.) * Defaults.map_dlogE) *\
             (self.Aeff_max * 1E4) * (333 * 24. * 3600) * 4 * np.pi
-        
+
         self._astro_gen = AstroGenerator_v2(Defaults.NEbin, aeff=aeff, pdf=self.gs.density)
 
 

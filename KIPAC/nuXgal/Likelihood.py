@@ -190,10 +190,8 @@ class Likelihood():
         if writeMap:
             #np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'w_atm_mean' + '_' + str(self.N_yr) + '.txt'),
             #           self.w_atm_mean)
-            np.savetxt(Defaults.SYNTHETIC_ATM_CROSS_CORR_STD_FORMAT.format(galaxyName=self.gs.galaxyName,
-                                                                           nyear=str(self.N_yr)))
-            np.savetxt(Defaults.SYNTHETIC_ATM_NCOUNTS_FORMAT.format(galaxyName=self.gs.galaxyName,
-                                                                    nyear=str(self.N_yr)))
+            np.savetxt(Defaults.SYNTHETIC_ATM_CROSS_CORR_STD_FORMAT.format(galaxyName=self.gs.galaxyName, nyear= str(self.N_yr)), self.w_atm_std)
+            np.savetxt(Defaults.SYNTHETIC_ATM_NCOUNTS_FORMAT.format(galaxyName=self.gs.galaxyName, nyear= str(self.N_yr)), self.Ncount_atm)
 
 
     def inputData(self, ns):
