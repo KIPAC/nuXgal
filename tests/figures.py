@@ -239,7 +239,7 @@ def TS_distribution(readfile = False, galaxyName='WISE', computeSTD=False, Ebinm
 
 def BestfitModel(ns, N_yr=1, galaxyName='WISE',Ebinmin=1, Ebinmax=4, lmin=50, plotMCMC=False, plotSED=False):
 
-    llh = Likelihood(N_yr=N_yr,  galaxyName=galaxyName, computeSTD=False, Ebinmin=Ebinmin, Ebinmax=Ebinmax, lmin=lmin)
+    llh = Likelihood(N_yr=N_yr,  galaxyName=galaxyName, computeSTD=True, Ebinmin=Ebinmin, Ebinmax=Ebinmax, lmin=lmin)
     llh.inputData(ns)
     ns.updateMask(llh.idx_mask)
     ndim = Ebinmax - Ebinmin
@@ -262,11 +262,11 @@ if __name__ == '__main__':
     #CompareNeutrinoMaps(energyBin=2, plotcount=True, plotoverdensity=True, plotpowerspectrum=True, plotcostheta=True)
     #GalaxySampleCharacters(plotWISEmap=True, plotpowerspectrum=False)
     #TS_distribution(readfile = False, galaxyName='WISE', computeSTD=False, Ebinmin=1, Ebinmax=3, lmin=50, N_re=10000)
-    TS_distribution(readfile = True, galaxyName='WISE', computeSTD=False, Ebinmin=1, Ebinmax=4, lmin=50, N_re=500)
+    #TS_distribution(readfile = True, galaxyName='WISE', computeSTD=False, Ebinmin=1, Ebinmax=4, lmin=50, N_re=500)
 
 
-    #ns = IC3yr
-    #N_yr = 3
+    ns = IC3yr
+    N_yr = 3
     #ns = NeutrinoSample()
     #ns.inputCountsmap(EventGenerator('IC86-2012', 'numu').SyntheticData(10., 1., density_nu=GalaxySample('WISE').density))
-    #BestfitModel(ns=ns, N_yr=N_yr, galaxyName='WISE', lmin=50, Ebinmin=1, plotMCMC=True, plotSED=True)
+    BestfitModel(ns=ns, N_yr=N_yr, galaxyName='WISE', lmin=50, Ebinmin=1, plotMCMC=False, plotSED=True)
