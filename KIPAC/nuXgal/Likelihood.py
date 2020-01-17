@@ -86,7 +86,7 @@ class Likelihood():
 
         # compute or load w_atm distribution
         if computeSTD:
-            self.computeAtmophericEventDistribution(N_re=300, writeMap=True)
+            self.computeAtmophericEventDistribution(N_re=500, writeMap=True)
         else:
             #w_atm_mean_file = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,  'w_atm_mean' +
             #                                          '_' + str(self.N_yr) + '.txt'))
@@ -278,7 +278,7 @@ class Likelihood():
 
 
 
-    def TS_distribution(self, N_re, f_diff, astroModel='numu', writeData=True):
+    def TS_distribution(self, N_re, f_diff, astroModel='observed_numu_fraction', writeData=True):
         """Generate a Test Statistic distribution for simulated trials
 
         Parameters
@@ -296,12 +296,12 @@ class Likelihood():
             The array of TS values
         """
         if self.N_yr != 3:
-            eg = EventGenerator(year='IC86-2012', galaxySample=self.gs, astroModel=astroModel)
+            eg = EventGenerator(year='IC86-2012',  astroModel=astroModel)
 
         else:
-            eg_2010 = EventGenerator('IC79-2010', galaxySample=self.gs, astroModel=astroModel)
-            eg_2011 = EventGenerator('IC86-2011', galaxySample=self.gs, astroModel=astroModel)
-            eg_2012 = EventGenerator('IC86-2012', galaxySample=self.gs, astroModel=astroModel)
+            eg_2010 = EventGenerator('IC79-2010',   astroModel=astroModel)
+            eg_2011 = EventGenerator('IC86-2011',   astroModel=astroModel)
+            eg_2012 = EventGenerator('IC86-2012',   astroModel=astroModel)
         ns = NeutrinoSample()
         TS_array = np.zeros(N_re)
         for i in range(N_re):
@@ -318,13 +318,12 @@ class Likelihood():
             TS_array[i] = minimizeResult[-1]
         if writeData:
             if f_diff == 0:
-                TSpath = Defaults.SYNTHETIC_TS_NULL_FORMAT(f_diff=str(f_diff),
-                                                           galaxyName=self.gs.galaxyName,
-                                                           nyear=str(self.N_yr))
+                TSpath = Defaults.SYNTHETIC_TS_NULL_FORMAT.format(f_diff=str(f_diff),  galaxyName=self.gs.galaxyName,    nyear=str(self.N_yr))
+
+
             else:
-                TSpath = Defaults.SYNTHETIC_TS_SIGNAL_FORMAT(f_diff=str(f_diff),
-                                                             galaxyName=self.gs.galaxyName,
-                                                             nyear=str(self.N_yr))
+                TSpath = Defaults.SYNTHETIC_TS_SIGNAL_FORMAT.format(f_diff=str(f_diff), galaxyName=self.gs.galaxyName, nyear=str(self.N_yr), astroModel=astroModel)
+
             np.savetxt(TSpath, TS_array)
         return TS_array
 

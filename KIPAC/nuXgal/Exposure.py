@@ -40,7 +40,7 @@ class WeightedAeff():
 
     def readTables(self):
         """Read the Effective area tabels for a particular year"""
-        Aeff_file = np.loadtxt(TABULATED_AEFF_FORMAT.format(year=self.year))
+        Aeff_file = np.loadtxt(Defaults.TABULATED_AEFF_FORMAT.format(year=self.year))
         # effective area, 200 in cos zenith, 70 in E
         self.Aeff_table = Aeff_file[:, 4]
         Emin_eff = np.reshape(Aeff_file[:, 0], (70, 200))[:, 0]
@@ -87,7 +87,7 @@ class ExposureLibrary:
     def __init__(self):
         """C'tor"""
         self._exposure_dict = {}
-        
+
     def keys(self):
         """Return the names of exposure maps"""
         return self._exposure_dict.keys()
@@ -103,7 +103,7 @@ class ExposureLibrary:
     def __getitem__(self, key):
         """Return a particular exposure map by name"""
         return self._exposure_dict[key]
-    
+
     def get_exposure(self, year='IC86-2012', spectralIndex=3.7):
         """Get the spectrum weighted exposure map.
         This will read it from the IRF area if it exists and create it otherwise.

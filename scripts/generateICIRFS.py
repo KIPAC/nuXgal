@@ -6,7 +6,7 @@ import healpy as hp
 from KIPAC.nuXgal import Defaults
 from KIPAC.nuXgal import file_utils
 from KIPAC.nuXgal import FigureDict
-from KIPAC.nuXgal.Exposure import ICECUBE_EXPOSURE_LIBRARY
+from KIPAC.nuXgal.Exposure import WeightedAeff
 
 parser = argparse.ArgumentParser()
 
@@ -22,8 +22,8 @@ icecube_data_dir = os.path.join(args.input, 'data/3year-data-release')
 data_dir = os.path.join(args.output, 'data', 'data')
 irf_dir = os.path.join(args.output, 'data', 'irfs')
 plot_dir = os.path.join(args.output, 'plots')
-testfigpath = os.path.join(plot_dir, 'test')
-countsmap3yr_format = os.path.join(data_dir,  'IceCube3yr_countsmap{i}.fits')
+testfigpath = os.path.join(Defaults.NUXGAL_PLOT_DIR, 'test')
+countsmap3yr_format = os.path.join(Defaults.NUXGAL_DATA_DIR,  'IceCube3yr_countsmap{i}.fits')
 
 for dirname in [data_dir, irf_dir, plot_dir]:
     try:
@@ -33,7 +33,7 @@ for dirname in [data_dir, irf_dir, plot_dir]:
 
 def geneateNcos_thetaFile(year):
 
-    Nzenith_bin = 60
+    Nzenith_bin = 100
     N_coszenith = np.zeros((len(Defaults.map_logE_center), Nzenith_bin))
 
     for file in [os.path.join(icecube_data_dir, year + '-events.txt')]:
@@ -85,11 +85,11 @@ def generateCountsmap(year):
 
 if __name__ == '__main__':
     countsmap = np.zeros((Defaults.NEbin, hp.pixelfunc.nside2npix(Defaults.NSIDE)))
-    for year in Defaults.THREE_YEAR_NAMES:
+    for year in ['IC79-2010', 'IC86-2011', 'IC86-2012']:
         geneateNcos_thetaFile(year)
         countsmap = countsmap + generateCountsmap(year)
 
-        for spectralIndex in Defaults.STANDARD_SPECTRAL_INDICES:
-            ICECUBE_EXPOSURE_LIBRARY.get_exposure(year=year, spectralIndex=spectralIndex)
+        for spectralIndex in [3.7, 2.28, 2.89]:
+            WeightedAeff(year=year, spectralIndex=spectralIndex)
 
     file_utils.write_maps_to_fits(countsmap, countsmap3yr_format)

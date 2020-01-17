@@ -38,7 +38,7 @@ TESTFIG_DIR = os.path.join(NUXGAL_PLOT_DIR, 'test')
 # Format strings for file paths
 NCOSTHETA_FORMAT = os.path.join(NUXGAL_IRF_DIR, 'Ncos_theta_{year}_{ebin}.txt')
 WEIGHTED_AEFF_FORMAT = os.path.join(NUXGAL_IRF_DIR, 'WeightedAeff_{year}_{specIndex}_{ebin}.fits')
-TABULATED_AEFF_FORMAT = os.path.join(NUXGAL_IRF_DIR, '{year}-TabulatedAeff.fits')
+TABULATED_AEFF_FORMAT = os.path.join(NUXGAL_IRF_DIR, '{year}-TabulatedAeff.txt')
 
 ANALYTIC_CL_PATH = os.path.join(NUXGAL_ANCIL_DIR, 'Cl_ggRM.dat')
 GALAXYMAP_FORMAT = os.path.join(NUXGAL_ANCIL_DIR, '{galaxyName}_galaxymap.fits')
@@ -84,4 +84,5 @@ ell = np.arange(NCL)                       # Array of all l values, useful in pl
 
 # southern sky mask
 exposuremap_theta, exposuremap_phi = hp.pixelfunc.pix2ang(NSIDE, np.arange(NPIXEL))
-idx_muon = np.where(exposuremap_theta > np.radians(85.))
+theta_north = np.radians(95.)
+idx_muon = np.where(exposuremap_theta > theta_north)
