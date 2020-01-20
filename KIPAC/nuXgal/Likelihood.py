@@ -344,6 +344,8 @@ class Likelihood():
         legendfont = {'fontsize' : 18, 'frameon' : False}
         matplotlib.rc('font', **font)
         matplotlib.rc('legend', **legendfont)
+        #matplotlib.rc(“text”, usetex=True)
+
         plt.ylabel(r'$E^2 dN/dE\,[\mathrm{GeV\,cm^{-2}\,s^{-1}}]$')
         plt.xlabel(r'$\log$ (E [GeV])')
         #plt.ylim(1e-3, 10) # for f_astro
