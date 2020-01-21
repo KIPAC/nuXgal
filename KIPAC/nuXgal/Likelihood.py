@@ -272,7 +272,7 @@ class Likelihood():
         len_f = self.Ebinmax - self.Ebinmin
         nll = lambda *args: -self.log_likelihood(*args)
         initial = 0.5 + 0.1 * np.random.randn(len_f)
-        soln = minimize(nll, initial, bounds=[(0, 4)] * (len_f))
+        soln = minimize(nll, initial, bounds=[(-4, 4)] * (len_f))
         return soln.x, (self.log_likelihood(soln.x) -\
                             self.log_likelihood(np.zeros(len_f))) * 2
 
@@ -340,17 +340,17 @@ class Likelihood():
         colorfbin : `int`
         """
         plt.figure(figsize=(8, 6))
-        font = {'family': 'Arial', 'weight' : 'normal', 'size'   : 18}
-        legendfont = {'fontsize' : 18, 'frameon' : False}
+        font = {'family': 'Arial', 'weight' : 'normal', 'size'   : 21}
+        legendfont = {'fontsize' : 21, 'frameon' : False}
         matplotlib.rc('font', **font)
         matplotlib.rc('legend', **legendfont)
-        #matplotlib.rc(“text”, usetex=True)
+        matplotlib.rc("text", usetex=True)
 
         plt.ylabel(r'$E^2 dN/dE\,[\mathrm{GeV\,cm^{-2}\,s^{-1}}]$')
         plt.xlabel(r'$\log$ (E [GeV])')
         #plt.ylim(1e-3, 10) # for f_astro
-        plt.ylim(1e-9, 1e-5) # for flux
-        plt.xlim(2, 7)
+        plt.ylim(1e-9, 1e-4) # for flux
+        plt.xlim(2, 6)
         plt.yscale('log')
 
         #cmap = matplotlib.colors.LinearSegmentedColormap.from_list("",
@@ -412,7 +412,8 @@ class Likelihood():
                                cmap=cmap, vmin=-2.5, vmax=0., linewidths=0, edgecolors='none')
 
         cbar = plt.colorbar(m)
-        cbar.ax.set_ylabel('Delta logL', rotation=90, fontsize=16, labelpad=15)
+        cbar.ax.set_ylabel(r'$\Delta\log\,L$', rotation=90, fontsize=16, labelpad=15)
+        plt.subplots_adjust(left=0.14, bottom=0.14)
         plt.savefig(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'Fig_sedlnl.png'))
 
 

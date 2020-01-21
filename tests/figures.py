@@ -17,8 +17,8 @@ from KIPAC.nuXgal.Exposure import ICECUBE_EXPOSURE_LIBRARY
 from KIPAC.nuXgal.GalaxySample import GALAXY_LIBRARY
 
 
-font = { 'family': 'Arial', 'weight' : 'normal', 'size'   : 22}
-legendfont = {'fontsize' : 22, 'frameon' : False}
+font = { 'family': 'Arial', 'weight' : 'normal', 'size'   : 21}
+legendfont = {'fontsize' : 21, 'frameon' : False}
 
 testfigpath = os.path.join(Defaults.NUXGAL_PLOT_DIR, 'Fig_')
 
@@ -85,8 +85,8 @@ def CompareNeutrinoMaps(energyBin=2, plotcount=False, plotoverdensity=False, plo
         #fig, (ax1, ax2) = plt.subplots(ncols=2, figsize = (20,6))
         matplotlib.rc('font', **font)
         matplotlib.rc('legend', **legendfont)
-        matplotlib.rcParams.update({'font.size':22})
-        #matplotlib.rc(“text”, usetex=True)
+        matplotlib.rcParams.update({'font.size':18})
+        matplotlib.rc("text", usetex=True)
 
         #plt.axes(ax1)
         #hp.mollview(IC3yr.countsmap[energyBin], title='IceCube 3 year', hold=True)
@@ -106,8 +106,8 @@ def CompareNeutrinoMaps(energyBin=2, plotcount=False, plotoverdensity=False, plo
         fig, (ax1, ax2) = plt.subplots(ncols=2, figsize = (20,6))
         matplotlib.rc('font', **font)
         matplotlib.rc('legend', **legendfont)
-        matplotlib.rcParams.update({'font.size':16})
-        #matplotlib.rc(“text”, usetex=True)
+        matplotlib.rcParams.update({'font.size':18})
+        matplotlib.rc("text", usetex=True)
 
         plt.axes(ax1)
         hp.mollview(IC3yr.getOverdensity()[energyBin], title='IceCube 3 year', hold=True)
@@ -119,7 +119,7 @@ def CompareNeutrinoMaps(energyBin=2, plotcount=False, plotoverdensity=False, plo
         plt.figure(figsize = (8,6))
         matplotlib.rc('font', **font)
         matplotlib.rc('legend', **legendfont)
-        #matplotlib.rc(“text”, usetex=True)
+        matplotlib.rc("text", usetex=True)
 
         w_auto_IC3yr = IC3yr.getPowerSpectrum()
         w_auto_SyntheticData3yr = SyntheticData3yr.getPowerSpectrum()
@@ -144,7 +144,7 @@ def CompareNeutrinoMaps(energyBin=2, plotcount=False, plotoverdensity=False, plo
         plt.figure(figsize = (8,6))
         matplotlib.rc('font', **font)
         matplotlib.rc('legend', **legendfont)
-        #matplotlib.rc(“text”, usetex=True)
+        matplotlib.rc("text", usetex=True)
 
         cosThetaBin = np.linspace(-1, 1, 50)
         cos_exposuremap_theta = np.cos(Defaults.exposuremap_theta)
@@ -170,10 +170,10 @@ def GalaxySampleCharacters(plotWISEmap=True, plotpowerspectrum=True):
         plt.figure(figsize = (8,6))
         matplotlib.rc('font', **font)
         matplotlib.rc('legend', **legendfont)
-        #matplotlib.rc(“text”, usetex=True)
+        matplotlib.rc("text", usetex=True)
         map = gs_WISE.galaxymap.copy()
         map[gs_WISE.idx_galaxymask] = hp.UNSEEN
-        hp.mollview(map, title='WISE-2MASS Galaxy Count Map', max=70, margins=[0,0,0,0.9])
+        hp.mollview(map, title='',  max=70, margins=[0,0,0,0.9])
         plt.savefig(testfigpath+'WISE_galaxymap.pdf')
 
     if plotpowerspectrum:
@@ -182,7 +182,7 @@ def GalaxySampleCharacters(plotWISEmap=True, plotpowerspectrum=True):
         plt.figure(figsize = (8,6))
         matplotlib.rc('font', **font)
         matplotlib.rc('legend', **legendfont)
-        #matplotlib.rc(“text”, usetex=True)
+        matplotlib.rc("text", usetex=True)
 
         N_tot_analy = float(gs_WISE.galaxymap.sum())
         shortNoiseMap = np.random.poisson(N_tot_analy / Defaults.NPIXEL, Defaults.NPIXEL)
@@ -204,7 +204,7 @@ def GalaxySampleCharacters(plotWISEmap=True, plotpowerspectrum=True):
 def TS_distribution_calculate(plotN_yr, galaxyName, computeSTD, Ebinmin, Ebinmax, lmin, N_re):
     llh = Likelihood(N_yr=plotN_yr,  galaxyName=galaxyName, computeSTD=computeSTD, Ebinmin=Ebinmin, Ebinmax=Ebinmax, lmin=lmin)
     llh.TS_distribution(N_re, f_diff=0)
-    #llh.TS_distribution(N_re, f_diff=1,  astroModel='observed_numu_fraction')
+    llh.TS_distribution(N_re, f_diff=1,  astroModel='observed_numu_fraction')
 
 
 def TS_distribution(readfile, galaxyName, computeSTD, lmin, N_re):
@@ -216,17 +216,17 @@ def TS_distribution(readfile, galaxyName, computeSTD, lmin, N_re):
 
     plotN_yr = [3, 10]
 
-    TS_bins = np.linspace(0, 200, 301)
+    TS_bins = np.linspace(-10, 200, 501)
     TS_bins_c = (TS_bins[0:-1] + TS_bins[1:]) / 2.
 
     plt.figure(figsize = (8,6))
     matplotlib.rc('font', **font)
     matplotlib.rc('legend', **legendfont)
-    #matplotlib.rc(“text”, usetex=True)
+    matplotlib.rc("text", usetex=True)
 
     plt.ylabel('1 - Cumulative Probability')
     plt.xlabel('Test Statistics')
-    plt.xlim(-1, 40)
+    plt.xlim(-2, 40)
     plt.ylim(1e-4, 2)
     plt.yscale('log')
 
@@ -246,13 +246,15 @@ def TS_distribution(readfile, galaxyName, computeSTD, lmin, N_re):
         p_atm = np.histogram(TS_atm, TS_bins)[0] / float(len(TS_atm))
         p_astro1 = np.histogram(TS_astro1, TS_bins)[0] / float(len(TS_astro1))
         p_astro2 = np.histogram(TS_astro2, TS_bins)[0] / float(len(TS_astro2))
+        print (len(np.where(p_atm == 0)[0])/float(len(TS_atm)))
 
         #dTS_bins = np.mean(TS_bins[1:] - TS_bins[0:-1])
         #p_atm = np.histogram(TS_atm, TS_bins)[0] / float(N_re) / dTS_bins
         #axes.plot(TS_bins_c,  p_atm, lw=3, label='atm')
         #axes.plot(TS_bins_c, stats.chi2.pdf(TS_bins_c, 2),'--', lw=2, label='chi2, dof=2')
 
-
+        #plt.plot(TS_bins_c, 1 - np.cumsum(p_atm), lw=lw[idx_N_yr], color=colors_atm[idx_N_yr])
+        #plt.fill_between(TS_bins_c,  1 - np.cumsum(p_astro1), 1 - np.cumsum(p_astro2), alpha=0.5, color=colors_fill[idx_N_yr])
         plt.step(TS_bins[:-1],  1 - np.cumsum(p_atm), lw=lw[idx_N_yr], color=colors_atm[idx_N_yr],  where='post')
         plt.fill_between(TS_bins[:-1],  1 - np.cumsum(p_astro1), 1 - np.cumsum(p_astro2), step='post', alpha=0.5, color=colors_fill[idx_N_yr])
 
@@ -266,11 +268,13 @@ def TS_distribution(readfile, galaxyName, computeSTD, lmin, N_re):
     e = plt.plot([], [], colors_astro[1], lw=2, label='Atm. + Astro. 10 yr' )
     c = plt.plot([], [], colors_astro[0], lw=2, label='Atm. + Astro. 3 yr' )
     d = plt.plot([], [], colors_atm[0], lw=2, label='Atm. only')
-    plt.plot(TS_bins_c, 1 - (0.5 + stats.chi2.cdf(TS_bins_c, 3)/2),'--', color='grey', lw=2, label=r'$\chi^2$ (dof=3)')
+    #plt.plot(TS_bins_c, 1 - (0.5 + stats.chi2.cdf(TS_bins_c, 3)/2),'--', color='grey', lw=2, label=r'$\chi^2$ (dof=3)')
+    plt.plot(TS_bins_c, 1 - (  stats.chi2.cdf(TS_bins_c, 3) ),'--', color='grey', lw=2, label=r'$\chi^2$ (dof=3), two-sided')
 
     legend1 = plt.legend(plot_lines[0], ["10 yr", "3 yr"], loc=1)
     plt.legend(numpoints=1, scatterpoints=1, frameon=True,fontsize=16, loc=4)
     #plt.gca().add_artist(legend1)
+    plt.subplots_adjust(left=0.14, bottom=0.14)
     plt.savefig(testfigpath+galaxyName+'_'+'TS_distribution.pdf')
 
 
@@ -297,16 +301,16 @@ def BestfitModel(ns, N_yr=1, galaxyName='WISE',Ebinmin=1, Ebinmax=4, lmin=50, pl
 
 
 if __name__ == '__main__':
-    #CompareNeutrinoMaps(energyBin=2, plotcount=True, plotoverdensity=True, plotpowerspectrum=True, plotcostheta=True)
-    #GalaxySampleCharacters(plotWISEmap=True, plotpowerspectrum=True)
-    TS_distribution(readfile = False, galaxyName='WISE', computeSTD=False, lmin=50, N_re=10000)
-    #TS_distribution(readfile = True, galaxyName='WISE', computeSTD=False, lmin=50, N_re=10000)
+    CompareNeutrinoMaps(energyBin=2, plotcount=True, plotoverdensity=True, plotpowerspectrum=True, plotcostheta=True)
+    GalaxySampleCharacters(plotWISEmap=True, plotpowerspectrum=True)
+    #TS_distribution(readfile = False, galaxyName='WISE', computeSTD=False, lmin=50, N_re=1000)
+    TS_distribution(readfile = True, galaxyName='WISE', computeSTD=False, lmin=50, N_re=1000)
 
 
-    #ns = IC3yr
-    #N_yr = 3
+    ns = IC3yr
+    N_yr = 3
     #print (np.sum(ns.getEventCounts()[1:]) / 3.)
     #ns = NeutrinoSample()
     #gs_WISE = GALAXY_LIBRARY.get_sample('WISE')
     #ns.inputCountsmap(EventGenerator('IC86-2012', 'observed_numu_fraction').SyntheticData(10., 1., density_nu=gs_WISE.density))
-    #BestfitModel(ns=ns, N_yr=N_yr, galaxyName='WISE', lmin=50, Ebinmin=0, Ebinmax=3, plotMCMC=True, plotSED=True)
+    BestfitModel(ns=ns, N_yr=N_yr, galaxyName='WISE', lmin=50, Ebinmin=0, Ebinmax=3, plotMCMC=False, plotSED=True)
