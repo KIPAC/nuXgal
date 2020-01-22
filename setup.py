@@ -5,13 +5,13 @@ from version import get_git_version
 setup(
     name='KIPAC_nuXgal',
     version=get_git_version(),
-    author='Arka Banarjee, Eric Charles, Ke Fang',
+    author='Arka Banarjee, Eric Charles, Ke Fang, Yuuki Omori',
     author_email='',
     description='A Python package for analysis of neutrino galaxy cross correlations',
     license='gpl2',
     packages=find_packages(),
     include_package_data=True,
-    url="https://github.com/KIPAC/analysis_001",
+    url="https://github.com/KIPAC/nuXgal",
     classifiers=[
         'Intended Audience :: Science/Research',
         'License :: OSI Approved :: GPL2 License',

@@ -1,4 +1,7 @@
-# analysis_001
-Analysis code for a project that Arka, Ke and Eric are working on.
+# nuXgal
+Analysis code for studying cross corellations between neturino events and galaxy samples.
 
-It's amazing.
+Some example notebooks are in the 'nb' sub-directory.
+
+
+
