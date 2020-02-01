@@ -8,7 +8,7 @@ from . import file_utils
 
 from .plot_utils import FigureDict
 
-from .Generator import AtmGenerator, AstroGenerator
+from .Generator import AtmGenerator, AstroGenerator_v2
 
 from .EventGenerator import EventGenerator
 
