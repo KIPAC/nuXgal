@@ -254,7 +254,7 @@ class Likelihood():
         len_f = self.Ebinmax - self.Ebinmin
         nll = lambda *args: -self.log_likelihood(*args)
         initial = 0.5 + 0.1 * np.random.randn(len_f)
-        soln = minimize(nll, initial, bounds=[(0, 4)] * (len_f))
+        soln = minimize(nll, initial, bounds=[(-4, 4)] * (len_f))
         return soln.x, (self.log_likelihood(soln.x) -\
                             self.log_likelihood(np.zeros(len_f))) * 2
 
@@ -344,7 +344,7 @@ class Likelihood():
         bestfit_f, _ = self.minimize__lnL()
 
         # common x for castro object initialization
-        f_Ebin = np.linspace(0, 2, 1000)
+        f_Ebin = np.linspace(0, 4, 1000)
 
         exposuremap = ICECUBE_EXPOSURE_LIBRARY.get_exposure('IC86-2012', 2.28)
 
@@ -415,7 +415,7 @@ class Likelihood():
         value : `float`
             The log of the prior
         """
-        if np.min(f) > 0. and np.max(f) < 2.:
+        if np.min(f) > -4. and np.max(f) < 4.:
             return 0.
         return -np.inf
 

@@ -23,31 +23,6 @@ legendfont = {'fontsize' : 21, 'frameon' : False}
 testfigpath = os.path.join(Defaults.NUXGAL_PLOT_DIR, 'Fig_')
 
 
-def test_STDdependence():
-    plt.figure(figsize = (8,6))
-    axes = plt.axes()
-    axes.set_yscale('log')
-    axes.set_ylim(1e-6, 1e-1)
-
-    w_atm_mean_file = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'w_atm_mean_30.txt'))
-    w_atm_std_file = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'w_atm_std_WISE_30.txt'))
-
-    Natm = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'Ncount_atm_after_masking_WISE_30.txt'))
-
-    axes.plot(Defaults.ell, np.abs(w_atm_mean_file[3]), lw=2, label='atm-mean-3')
-
-    axes.plot(Defaults.ell, w_atm_std_file[3], lw=2, label='atm-3')
-    axes.plot(Defaults.ell, w_atm_std_file[2], label='atm-2')
-
-    axes.plot(Defaults.ell, w_atm_std_file[1] * (Natm[1] / Natm[2])**0.5, label='atm-2 from atm 1')
-    axes.plot(Defaults.ell, w_atm_std_file[1] * (Natm[1] / Natm[3])**0.5, lw=1, label='atm-3 from atm 1')
-
-
-    plt.legend()
-    plt.savefig(testfigpath+'wstd.pdf')
-
-
-
 
 countsmappath = os.path.join(Defaults.NUXGAL_DATA_DIR, 'IceCube3yr_countsmap{i}.fits')
 IC3yr = NeutrinoSample()
@@ -206,29 +181,14 @@ def GalaxySampleCharacters(plotWISEmap=True, plotpowerspectrum=True):
 
 
 def TS_distribution_calculate(plotN_yr, galaxyName, computeSTD, Ebinmin, Ebinmax, lmin, N_re):
+
     llh = Likelihood(N_yr=plotN_yr,  galaxyName=galaxyName, computeSTD=computeSTD, Ebinmin=Ebinmin, Ebinmax=Ebinmax, lmin=lmin)
-    llh.TS_distribution(N_re, f_diff=0)
-    #llh.TS_distribution(N_re, f_diff=1,  astroModel='observed_numu_fraction')
+    #llh.TS_distribution(N_re, f_diff=0)
+    llh.TS_distribution(N_re, f_diff=1,  astroModel='observed_numu_fraction')
 
 
-def TS_distribution_expected(dof = 3):
-    TS_array = np.linspace(0, 50, 10000)
-    cdf_TS = stats.chi2.cdf(TS_array, 1) / 2 + 0.5
-    from scipy.interpolate import interp1d
-    f = interp1d(cdf_TS, TS_array, bounds_error=False, fill_value=0.)
-    N_TS = 200000
-    TS_sum = np.zeros(N_TS)
-    for i in np.arange(N_TS):
-        for j in range(dof):
-            TS_sum[i] += f(np.random.rand())
-    p_TS = np.histogram(TS_sum, bins=TS_array)[0] / float(N_TS)
-    TS_c = (TS_array[0:-1] + TS_array[1:])/2.
-    np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'TS_compare'+str(dof)+'.txt'), np.c_[TS_c, 1-np.cumsum(p_TS)])
-    return TS_c, 1-np.cumsum(p_TS)
+def TS_distributionPlot(galaxyName, lmin,  pdf=False, N_re=10000):
 
-
-
-def TS_distribution_byBin():
     TS_bins = np.linspace(-1, 200, 4001)
     TS_bins_c = (TS_bins[0:-1] + TS_bins[1:]) / 2.
 
@@ -236,147 +196,46 @@ def TS_distribution_byBin():
     matplotlib.rc('font', **font)
     matplotlib.rc('legend', **legendfont)
     matplotlib.rc("text", usetex=True)
-    color = [ 'r', 'orange', 'limegreen', 'dodgerblue', 'mediumslateblue', 'purple', 'grey']
 
     plt.xlabel('Test Statistics')
-    plt.xlim(0, 25)
+    plt.xlim(0, 30)
     plt.yscale('log')
-    plt.ylim(1e-4, 2)
     plt.ylabel('1 - Cumulative Probability')
+    plt.ylim(1e-4, 3)# 30)
 
-    """
-    for i in [1, 2, 3]:
-        TS_atm = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,'TS_0_WISE_10_' + str(i) + '-' + str(i+1) +'.txt'))
-        p_atm = np.histogram(TS_atm, TS_bins)[0] / float(len(TS_atm))
-        plt.step(TS_bins[:-1],  1 - np.cumsum(p_atm), lw=i * 1, color=color[i],  where='post', label='bin'+str(i))
-    """
-
-    #TS_atm = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,'TS_0_WISE_10_1-4.txt'))
-    TS_atm = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,'TS_0_WISE_5_bin1_lmin50.txt'))
-    p_atm = np.histogram(TS_atm, TS_bins)[0] / float(len(TS_atm))
-    plt.step(TS_bins[:-1],  1 - np.cumsum(p_atm), lw=1, color='k',  where='post', label='lmin=50')
-
-    TS_atm = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,'TS_0_WISE_5_bin1_lmin100.txt'))
-    p_atm = np.histogram(TS_atm, TS_bins)[0] / float(len(TS_atm))
-    plt.step(TS_bins[:-1],  1 - np.cumsum(p_atm), lw=2, color='g',  where='post', label='lmin=100')
-
-    TS_atm = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,'TS_0_WISE_5_bin1_lmin200.txt'))
-    p_atm = np.histogram(TS_atm, TS_bins)[0] / float(len(TS_atm))
-    plt.step(TS_bins[:-1],  1 - np.cumsum(p_atm), lw=4, color='b',  where='post', label='lmin=200')
-
-    TS_atm = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,'TS_0_WISE_5_bin1_lmin20.txt'))
-    p_atm = np.histogram(TS_atm, TS_bins)[0] / float(len(TS_atm))
-    plt.step(TS_bins[:-1],  1 - np.cumsum(p_atm), lw=1, color='hotpink',  where='post', label='lmin=20')
-
-    TS_atm = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,'TS_0_WISE_5_bin1_lmin20b.txt'))
-    p_atm = np.histogram(TS_atm, TS_bins)[0] / float(len(TS_atm))
-    plt.step(TS_bins[:-1],  1 - np.cumsum(p_atm), lw=1, color='dodgerblue',  where='post', label='lmin=20b')
-
-
-    plt.plot(TS_bins_c, 1 - (0.5 + stats.chi2.cdf(TS_bins_c, 1) / 2.),'--', color='grey', lw=2, label=r'$\chi^2$ (dof=1)')
-    #plt.plot(TS_bins_c, 1 - ( stats.chi2.cdf(TS_bins_c, 1) ),'-.', color='grey', lw=2, label=r'$\chi^2$ (dof=1)')
-    #plt.plot(TS_bins_c, 1 - (0.5 + stats.chi2.cdf(TS_bins_c, 3) / 2. ),'--', color='grey', lw=3, label=r'$\chi^2$ (dof=3)')
-
-    """
-    dof = 3
-    #x, y = TS_distribution_expected(dof)
-    TS_distribution_expected_file = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'TS_compare'+str(dof)+'.txt'))
-    x, y = TS_distribution_expected_file[:, 0], TS_distribution_expected_file[:,1]
-    plt.plot(x, y, '--', color='grey', lw=4, label=r'one-sided test $(\rm dof = 3)$')
-    plt.title('$l_{\mathrm{min}}=100$')
-    """
-
-
-
-    plt.legend(numpoints=1, scatterpoints=1,  frameon=True,fontsize=16, loc=1)
-    #plt.gca().add_artist(legend1)
-    plt.subplots_adjust(left=0.14, bottom=0.14)
-    plt.savefig(testfigpath+'WISE_'+'TS_distribution_byBin.pdf')
-
-
-def TS_distribution(readfile, galaxyName, computeSTD, lmin, N_re, pdf=False):
-
-    if not readfile:
-        #TS_distribution_calculate(3, galaxyName='WISE', computeSTD=computeSTD, Ebinmin=1, Ebinmax=4, lmin=lmin, N_re = N_re)
-        TS_distribution_calculate(5, galaxyName='WISE', computeSTD=computeSTD, Ebinmin=1, Ebinmax=2, lmin=lmin, N_re = N_re)
-
-
-    plotN_yr = [10] # [3, 10]
-
-    TS_bins = np.linspace(-1, 200, 4001)
-    #TS_bins = np.linspace(-1, 200, 2001)
-    TS_bins_c = (TS_bins[0:-1] + TS_bins[1:]) / 2.
-
-    plt.figure(figsize = (8,6))
-    matplotlib.rc('font', **font)
-    matplotlib.rc('legend', **legendfont)
-    matplotlib.rc("text", usetex=True)
-
-    plt.xlabel('Test Statistics')
-    plt.xlim(0, 40)
-    plt.yscale('log')
-
-    colors_atm = ['blue', 'silver']
+    colors_atm = 'k'
     colors_astro = ['royalblue', 'deepskyblue']
-    colors_astro2 = colors_astro
-    colors_fill = colors_astro
-    lw = [4, 2]
 
-    plot_lines = []
-    a, = plt.plot([], [], 'k', lw=lw[1])
-    b, = plt.plot([], [], 'k', lw=lw[0])
-    plot_lines.append([a, b])
     plt.plot([], [], colors_atm[0], lw=2, label='Atm. only')
-
-    for idx_N_yr, N_yr in enumerate(plotN_yr):
-
-        TS_atm = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,'TS_0_'+galaxyName+'_'+str(N_yr)+'.txt'))
-        #TS_astro1 = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,'TS_1_'+galaxyName+'_'+str(N_yr)+'_observed_numu_fraction1.txt'))
-        print (len(np.where(TS_atm == 0.)[0]))
-
-        if pdf:
-            dTS_bins = np.mean(TS_bins[1:] - TS_bins[0:-1])
-            p_atm = np.histogram(TS_atm, TS_bins)[0] / float(N_re) / dTS_bins
-            plt.plot(TS_bins_c, p_atm, lw=lw[idx_N_yr], color=colors_atm[idx_N_yr])
-            plt.plot(TS_bins_c, stats.chi2.pdf(TS_bins_c, 3),'r--', label='chi2, dof=3')
-            plt.ylabel('Probability distribution function')
-            plt.ylim(1e-5, 2)
-
-        else:
-            p_atm = np.histogram(TS_atm, TS_bins)[0] / float(len(TS_atm))
-            """
-            p_astro1 = np.histogram(TS_astro1, TS_bins)[0] / float(len(TS_astro1))
-            if N_yr == 3:
-                plt.step(TS_bins[:-1],  1 - np.cumsum(p_astro1), lw=lw[idx_N_yr], color=colors_fill[idx_N_yr],  where='post')
-
-            if N_yr == 10:
-                TS_astro2 = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,'TS_1_'+galaxyName+'_'+str(N_yr)+'_observed_numu_fraction2.txt'))
-                p_astro2 = np.histogram(TS_astro2, TS_bins)[0] / float(len(TS_astro2))
-                plt.fill_between(TS_bins[:-1],  1 - np.cumsum(p_astro1), 1 - np.cumsum(p_astro2), step='post', alpha=0.4, color=colors_fill[idx_N_yr])
-                #print (np.median (np.sort(TS_astro2)))
-            """
-            #print ( np.where(TS_atm == 0) , stats.chi2.cdf(0., 4))
-            plt.step(TS_bins[:-1],  1 - np.cumsum(p_atm), lw=lw[idx_N_yr], color=colors_atm[idx_N_yr],  where='post')
-            #plt.plot([-10, 1000], [0.5, 0.5], 'r-.', lw=2)
-            plt.ylabel('1 - Cumulative Probability')
-            plt.ylim(1e-4, 2)
-
-    if not pdf:
-        #c = plt.plot([], [], colors_astro[0], lw=2, label='Atm. + Astro. 3 yr' )
-        #e = plt.plot([], [], colors_astro[1], lw=6, label='Atm. + Astro. 10 yr' )
-        plt.plot(TS_bins_c, 1 - (  stats.chi2.cdf(TS_bins_c, 1) ),'-', color='k', lw=3, label=r'$\chi^2$ (dof=1)')
-        #plt.plot(TS_bins_c, 1 - (0.5 + stats.chi2.cdf(TS_bins_c, 3)/2),'--', color='r', lw=2, label=r'$\chi^2\,(\rm dof = 3)$')
-        #x, y = TS_distribution_expected()
-        #TS_distribution_expected_file = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'TS_compare.txt'))
-        #x, y = TS_distribution_expected_file[:, 0], TS_distribution_expected_file[:,1]
-        #plt.plot(x, y, '--', color='r', lw=2, label=r'one-sided test $(\rm dof = 3)$')
+    plt.plot([], [], colors_astro[0], lw=3, label='Atm. + Astro. 3 yr' )
+    plt.plot([], [], colors_astro[1], lw=6, label='Atm. + Astro. 10 yr' )
 
 
-    #legend1 = plt.legend(plot_lines[0], ["10 yr", "3 yr"], loc=1)
-    plt.legend(numpoints=1, scatterpoints=1,  frameon=True,fontsize=16, loc=1)
-    #plt.gca().add_artist(legend1)
+    # 10yr
+    TS_atm = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,'TS_0_'+galaxyName+'_10.txt'))
+    TS_astro1 = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,'TS_1_'+galaxyName+'_10_observed_numu_fraction1.txt'))
+    TS_astro2 = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,'TS_1_'+galaxyName+'_10_observed_numu_fraction2.txt'))
+
+    # 3yr
+    TS_astro1_3yr = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,'TS_1_'+galaxyName+'_3_observed_numu_fraction1.txt'))
+
+    TS2p = lambda TS: np.histogram(TS, TS_bins)[0] / float(len(TS))
+
+    plt.plot(TS_bins_c, 1 - (stats.chi2.cdf(TS_bins_c, 3)),'--', color='silver', lw=6, label=r'$\chi^2$ (dof=3)')
+    plt.step(TS_bins[:-1],  1 - np.cumsum(TS2p(TS_atm)), lw=3, color=colors_atm,  where='post')
+
+    plt.step(TS_bins[:-1],  1 - np.cumsum(TS2p(TS_astro1_3yr)), lw=4, color=colors_astro[0],  where='post')
+
+
+    plt.fill_between(TS_bins[:-1],  1 - np.cumsum(TS2p(TS_astro1)), 1 - np.cumsum(TS2p(TS_astro2)), step='post', alpha=0.4, color=colors_astro[1])
+    print (np.median (np.sort(TS_astro2)))
+
+    plt.plot([-10, 100], [0.5, 0.5], 'r--', lw=1)
+    plt.legend(numpoints=1, scatterpoints=1,ncol=1,  frameon=True,fontsize=16, loc=3)
     plt.subplots_adjust(left=0.14, bottom=0.14)
     plt.savefig(testfigpath+galaxyName+'_'+'TS_distribution.pdf')
+
+
 
 
 
@@ -394,33 +253,46 @@ def BestfitModel(ns, N_yr=1, galaxyName='WISE',Ebinmin=1, Ebinmax=4, lmin=50, pl
     if plotMCMC:
         llh.runMCMC(Nwalker=640, Nstep=500)
         labels = [ '$f_{\mathrm{astro},\,1}$', '$f_{\mathrm{astro},\,2}$', '$f_{\mathrm{astro},\,3}$']
-        truths = [ 1., 1., 1.]
+        truths = np.array([0.00221405, 0.01216614, 0.15222642, 0., 0., 0.]) * 2.
         llh.plotMCMCchain(ndim, labels, truths, plotChain=True)
 
     if plotSED:
         llh.plotCastro()
 
-def Projected10yr():
+def Projected10yr(readdata=True, plotMCMC=False):
     N_yr = 10
     ns = NeutrinoSample()
-    gs_WISE = GALAXY_LIBRARY.get_sample('WISE')
-    ns.inputCountsmap(EventGenerator('IC86-2012', 'observed_numu_fraction').SyntheticData(N_yr, 1., density_nu=gs_WISE.density))
-    BestfitModel(ns=ns, N_yr=N_yr, galaxyName='WISE', lmin=50, Ebinmin=1, Ebinmax=4, plotMCMC=True, plotSED=True)
+    astropath = os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'eventmap_10yr_{i}.fits')
+
+    if readdata:
+        ns.inputData(astropath)
+    else:
+        gs_WISE = GALAXY_LIBRARY.get_sample('WISE')
+        eg_2010 = EventGenerator('IC79-2010',   astroModel='observed_numu_fraction')
+        eg_2011 = EventGenerator('IC86-2011',   astroModel='observed_numu_fraction')
+        eg_2012 = EventGenerator('IC86-2012',   astroModel='observed_numu_fraction')
+
+        countsmap = eg_2010.SyntheticData(1., f_diff=1, density_nu=gs_WISE.density) +\
+        eg_2011.SyntheticData(4.5, f_diff=1, density_nu=gs_WISE.density) +\
+        eg_2012.SyntheticData(4.5, f_diff=1, density_nu=gs_WISE.density)
+        ns.inputCountsmap(countsmap)
+        write_maps_to_fits(countsmap, astropath)
+
+    BestfitModel(ns=ns, N_yr=N_yr, galaxyName='WISE', lmin=50, Ebinmin=1, Ebinmax=4, plotMCMC=plotMCMC, plotSED=True)
 
 
-def SED_3yr():
+def SED_3yr(plotMCMC=False):
     ns = IC3yr
     N_yr = 3
     #print (np.sum(ns.getEventCounts()[1:]) / 3.)
-    BestfitModel(ns=ns, N_yr=N_yr, galaxyName='WISE', lmin=50, Ebinmin=1, Ebinmax=4, plotMCMC=True, plotSED=True)
+    BestfitModel(ns=ns, N_yr=N_yr, galaxyName='WISE', lmin=50, Ebinmin=1, Ebinmax=4, plotMCMC=plotMCMC, plotSED=True)
 
 
 if __name__ == '__main__':
-    TS_distribution_byBin()
-    #test_STDdependence()
     #CompareNeutrinoMaps(energyBin=2, plotcount=True, plotoverdensity=True, plotpowerspectrum=True, plotcostheta=True)
     #GalaxySampleCharacters(plotWISEmap=True, plotpowerspectrum=True)
-    #TS_distribution(readfile = False, galaxyName='WISE', computeSTD=False, lmin=20, N_re=500)
-    #TS_distribution(readfile = True, galaxyName='WISE', computeSTD=False, lmin=50, N_re=35000, pdf=False)
-    #SED_3yr()
-    #Projected10yr()
+    #TS_distribution_calculate(3, galaxyName='WISE', computeSTD=computeSTD, Ebinmin=1, Ebinmax=4, lmin=lmin, N_re = N_re)
+    #TS_distribution_calculate(10, galaxyName='WISE', computeSTD=False, Ebinmin=1, Ebinmax=4, lmin=50, N_re = 200)
+    TS_distributionPlot(galaxyName='WISE', lmin=50, pdf=False)
+    #SED_3yr(plotMCMC=False)
+    #Projected10yr(readdata=True, plotMCMC=True)
