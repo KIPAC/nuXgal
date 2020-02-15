@@ -8,6 +8,7 @@ The following steps install the code.
 
 #### Initiate a conda enviroment 
 conda create -n nuXgal python=3.6 
+
 conda activate nuXgal
 
 #### Setup the code
