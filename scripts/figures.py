@@ -21,9 +21,6 @@ font = { 'family': 'Arial', 'weight' : 'normal', 'size'   : 21}
 legendfont = {'fontsize' : 21, 'frameon' : False}
 
 testfigpath = os.path.join(Defaults.NUXGAL_PLOT_DIR, 'Fig_')
-
-
-
 countsmappath = os.path.join(Defaults.NUXGAL_DATA_DIR, 'IceCube3yr_countsmap{i}.fits')
 IC3yr = NeutrinoSample()
 IC3yr.inputData(countsmappath)
@@ -283,6 +280,6 @@ if __name__ == '__main__':
     GalaxySampleCharacters(plotWISEmap=True, plotpowerspectrum=True)
     #TS_distribution_calculate(3, galaxyName='WISE', computeSTD=computeSTD, Ebinmin=1, Ebinmax=4, lmin=lmin, N_re = N_re)
     #TS_distribution_calculate(10, galaxyName='WISE', computeSTD=False, Ebinmin=1, Ebinmax=4, lmin=50, N_re = 200)
-    TS_distributionPlot(galaxyName='WISE', lmin=50, pdf=False)
-    SED_3yr(plotMCMC=False)
-    Projected10yr(readdata=True, plotMCMC=False)
+    #TS_distributionPlot(galaxyName='WISE', lmin=50, pdf=False)
+    #SED_3yr(plotMCMC=False)
+    #Projected10yr(readdata=True, plotMCMC=False)
