@@ -31,6 +31,8 @@ setup(
         'numba >= 0.45.1',
         'pytest >= 5.2.1',
         'healpy >= 1.12.0',
+        'emcee',
+        'corner',
     ],
     extras_require=dict(
         all=[],
