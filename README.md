@@ -6,7 +6,16 @@ This is an analysis code for studying cross corellations between neturino events
 Some test codes are in the 'tests' sub-directory.
 The following steps install the code. 
 
-# initiate a conda enviroment 
+#### Clone the repo from github
+git clone https://github.com/KIPAC/nuXgal.git
+
+#### If you want the tag corresponding to the paper draft you can checkout that version explictly
+git checkout tags/v0.1
+
+#### We recommed that you explictly tell the code to put IRFs and ancillary files with the code itself.  You can do this by setting:
+export NUXGAL_DIR=DIRECTORY_WITH_CODE
+
+#### Initiate a conda enviroment 
 conda create -n nuXgal python=3.6 
 conda activate nuXgal
 
