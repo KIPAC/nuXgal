@@ -9,6 +9,9 @@ The following steps install the code.
 #### Clone the repo from github
 git clone https://github.com/KIPAC/nuXgal.git
 
+#### Go to the directory with the code
+cd nuXgal
+
 #### If you want the tag corresponding to the paper draft you can checkout that version explictly
 git checkout tags/v0.1
 
