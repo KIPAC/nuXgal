@@ -17,7 +17,7 @@ python setup.py develop
 #### Download IceCube public three-year point source data (https://icecube.wisc.edu/science/data/PS-3years) to directory $ICECUBE_DATA_FOLDER.
 
 #### You can explictly tell the code where to put IRFS with the code
-export NUXGAL_DIR=<where you put the code> 
+export NUXGAL_DIR=DIRECTORY_WITH_CODE
 
 #### Generate instrument response function
 python scripts/generateICIRFS.py -i $ICECUBE_DATA_FOLDER
