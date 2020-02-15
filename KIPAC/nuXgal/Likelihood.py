@@ -31,7 +31,7 @@ def significance(chi_square, dof):
     -------
     significance : `float`
     """
-    p_value = distributions.chi2.sf(chi_square, dof-1)
+    p_value = distributions.chi2.sf(chi_square, dof)
     significance_twoTailNorm = norm.isf(p_value/2)
     return significance_twoTailNorm
 
@@ -331,7 +331,7 @@ class Likelihood():
         plt.ylabel(r'$E^2 dN/dE\,[\mathrm{GeV\,cm^{-2}\,s^{-1}\,sr^{-1}}]$')
         plt.xlabel(r'$\log$ (E [GeV])')
         #plt.ylim(1e-3, 10) # for f_astro
-        plt.ylim(1e-9, 1e-4) # for flux
+        plt.ylim(1e-9, 1e-5) # for flux
         plt.xlim(2.5, 5.5)
         plt.yscale('log')
 
@@ -377,6 +377,7 @@ class Likelihood():
             # else plot the 2 sigma upper limit
             else:
                 f_hi = castro.getLimit(0.05)
+                #print (f_hi)
                 plt.errorbar(Defaults.map_logE_center[idx_E], f_hi * factor_f2flux, yerr=f_hi * factor_f2flux * 0.2,
                              xerr=Defaults.map_dlogE/2., uplims=True, color='k')
                 f_select_lo, f_select_hi = 0, castro.getLimit(coloralphalimit)
