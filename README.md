@@ -6,6 +6,12 @@ This is an analysis code for studying cross corellations between neturino events
 Some test codes are in the 'tests' sub-directory.
 The following steps install the code. 
 
+#### Clone the repo from github
+git clone https://github.com/KIPAC/nuXgal.git
+
+#### We recommed that you explictly tell the code to put IRFs and ancillary files with the code itself.  You can do this by setting:
+export NUXGAL_DIR=DIRECTORY_WITH_CODE
+
 #### Initiate a conda enviroment 
 conda create -n nuXgal python=3.6 
 
@@ -15,9 +21,6 @@ conda activate nuXgal
 python setup.py develop
 
 #### Download IceCube public three-year point source data (https://icecube.wisc.edu/science/data/PS-3years) to directory $ICECUBE_DATA_FOLDER.
-
-#### You can explictly tell the code where to put IRFS with the code
-export NUXGAL_DIR=DIRECTORY_WITH_CODE
 
 #### Generate instrument response function
 python scripts/generateICIRFS.py -i $ICECUBE_DATA_FOLDER
