@@ -44,15 +44,16 @@ for dirname in [Defaults.NUXGAL_SYNTHETICDATA_DIR, Defaults.NUXGAL_PLOT_DIR]:
 # --- EventGenerator tests ---
 def astroEvent_galaxy(f_diff = 1.):
     gs = GALAXY_LIBRARY.get_sample('analy')
-    eg = EventGenerator(year='IC86-2012', galaxySample=gs, astroModel='numu')
-    Nastro = np.random.poisson(eg.Nastro_1yr_Aeffmax * f_diff)
-    print (Nastro)
-    eventmap = eg.astroEvent_galaxy(Nastro, gs.density)
-    file_utils.write_maps_to_fits(eventmap, astropath)
+    eg = EventGenerator(year='IC86-2012', astroModel='observed_numu_fraction')
+
+    N_astro_north_obs = np.random.poisson(eg.nevts * 1 * eg.f_astro_north_truth)
+    N_astro_north_exp = [N_astro_north_obs[i] / np.sum(eg._astro_gen.prob_reject()[i] * gs.density) for i in range(Defaults.NEbin)]
+    astro_map = eg.astroEvent_galaxy(np.array(N_astro_north_exp), gs.density)
+    file_utils.write_maps_to_fits(astro_map, astropath)
 
     if MAKE_TEST_PLOTS:
         figs = FigureDict()
-        figs.mollview_maps('astro', eventmap)
+        figs.mollview_maps('astro', astro_map)
         figs.save_all(testfigpath, 'pdf')
 
 
@@ -83,7 +84,7 @@ def atmBG_coszenith(energyBin=0):
 
 def atmBG():
     eg = EventGenerator()
-    eventmap = eg.atmEvent(1.)
+    eventmap = eg.atmEvent(10.)
     eventmap2 = np.zeros((Defaults.NEbin, Defaults.NPIXEL))
 
     file_utils.write_maps_to_fits(eventmap, bgpath)
@@ -308,6 +309,6 @@ if __name__ == '__main__':
     #test_Demonstration()
 
     test_EventGenerator()
-    test_PowerSpectrum()
-    test_CrossCorrelation()
-    test_energySpectrum()
+    #test_PowerSpectrum()
+    #test_CrossCorrelation()
+    #test_energySpectrum()

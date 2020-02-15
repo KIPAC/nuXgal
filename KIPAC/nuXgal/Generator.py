@@ -42,7 +42,7 @@ def build_cdf(pdf_vals, grid_vals, dgrid_vals):
     #index_non_one = np.where(1 - cdf < 8e-5)[0][0] # to avoid peak in energy bin 3
     return interp1d(cdf,
                     grid_vals[1:],
-                    bounds_error=False, fill_value="extrapolate")
+                    bounds_error=False, fill_value=0.)#"extrapolate")
 
 
 def generate_coszenith(cosz_cdf, nevents):
@@ -256,8 +256,6 @@ def get_dnde_astro(astroModel):
         astroModel = 'numu'
     pars = ASTROMODEL_LIBRARY[astroModel]
     pf = pars['prefactor']
-    index = pars['spectralIndex']    
+    index = pars['spectralIndex']
     dN_dE_astro = lambda E_GeV: pf * (E_GeV / 100e3)**(-1*index)
     return (pars, dN_dE_astro)
-
-

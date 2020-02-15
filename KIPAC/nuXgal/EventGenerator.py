@@ -9,18 +9,6 @@ from .Generator import AtmGenerator, AstroGenerator_v2, get_dnde_astro
 from .Exposure import ICECUBE_EXPOSURE_LIBRARY
 
 
-# dN/dE \propto E^alpha
-def randPowerLaw(alpha, Ntotal, emin, emax):
-    """Generate a number of events from a power-law distribution"""
-    if alpha == -1:
-        part1 = np.log(emax)
-        part2 = np.log(emin)
-        return np.exp((part1 - part2) * np.random.rand(Ntotal) + part2)
-    part1 = np.power(emax, alpha + 1)
-    part2 = np.power(emin, alpha + 1)
-    return np.power((part1 - part2) * np.random.rand(Ntotal) + part2, 1./(alpha + 1))
-
-
 class EventGenerator():
     """Class to generate synthetic IceCube events
 
@@ -33,18 +21,15 @@ class EventGenerator():
 
         coszenith_path = Defaults.NCOSTHETA_FORMAT.format(year=year, ebin='{i}')
         cosz = file_utils.read_cosz_from_txt(coszenith_path, Defaults.NEbin)
-        self.nevts = np.sum(cosz[:, :, 1], axis=1)
-        self._atm_gen = AtmGenerator(Defaults.NEbin, coszenith=cosz, nevents_expected=self.nevts)
 
-        cosz_north = cosz.copy()
         # calculate number of events in the northern sky
         for i in range(Defaults.NEbin):
-            for j in range(len(cosz_north[i])):
-                if cosz_north[i][j][0] < np.cos(Defaults.theta_north):
-                    cosz_north[i][j][1] = 0.
+            for j in range(len(cosz[i])):
+                if cosz[i][j][0] < np.cos(Defaults.theta_north):
+                    cosz[i][j][1] = 0.
 
-        self.nnus = np.sum(cosz_north[:, :, 1], axis=1)
-
+        self.nevts = np.sum(cosz[:, :, 1], axis=1)
+        self._atm_gen = AtmGenerator(Defaults.NEbin, coszenith=cosz, nevents_expected=self.nevts)
 
 
         self.astroModel = None
@@ -64,24 +49,14 @@ class EventGenerator():
         """
         self.astroModel = astroModel
 
-        if astroModel == 'observed_numu_fraction':
-            # Fig 3 of 1908.09551
-            self.f_astro_north_truth = np.array([0, 0.00391027, 0.04331592, 0.45597574, 1., 0., 0.])
-            #self.f_astro_north_truth = np.array([0, 0.00391027, 0.04331592, 0.45597574, 0., 0., 0.]) * 2.
-            spectralIndex = 2.28
+        assert (astroModel == 'observed_numu_fraction'), "EventGenerator: incorrect astroModel"
 
-        else: # we are not using this way for generation of astrophysical events
-            pars, dN_dE_astro = get_dnde_astro(self.astroModel)
-            spectralIndex = pars['spectralIndex']
+        # Fig 3 of 1908.09551
+        self.f_astro_north_truth = np.array([0, 0.00221405, 0.01216614, 0.15222642, 0., 0., 0.]) * 2.
+        spectralIndex = 2.28
 
         aeff = ICECUBE_EXPOSURE_LIBRARY.get_exposure(self.year, spectralIndex)
         self.Aeff_max = aeff.max(1)
-
-        if astroModel != 'observed_numu_fraction':
-            self.Nastro_1yr_Aeffmax = dN_dE_astro(10.**Defaults.map_logE_center) *\
-            (10. ** Defaults.map_logE_center * np.log(10.) * Defaults.map_dlogE) *\
-            (self.Aeff_max * 1E4) * (333 * 24. * 3600) * 4 * np.pi
-
         self._astro_gen = AstroGenerator_v2(Defaults.NEbin, aeff=aeff)
 
 
@@ -181,26 +156,17 @@ class EventGenerator():
             return countsmap
 
 
-        assert (self.astroModel is not None), "EventGenerator: no astrophysical model"
-        if self.astroModel != 'observed_numu_fraction':
-            # generate astro maps using exposuremap and flux
-            Nastro = np.random.poisson(self.Nastro_1yr_Aeffmax * N_yr * f_diff)
-            astro_map = self.astroEvent_galaxy(Nastro, density_nu)
-            Nastro_generated = astro_map.sum(axis = 1)
-            Natm = np.random.poisson(self.nevts * N_yr) - Nastro_generated
-            Natm[np.where(Natm < 0)] = 0.
-            self._atm_gen.nevents_expected.set_value(Natm, clear_parent=False)
-            atm_map = self._atm_gen.generate_event_maps(1)[0]
+        assert (self.astroModel == 'observed_numu_fraction'), "EventGenerator: incorrect astrophysical model"
+        density_nu = density_nu.copy()
+        density_nu[Defaults.idx_muon] = 0. # since we do not know the fraction of numu in southern sky
+        density_nu = density_nu / density_nu.sum()
 
-        else:
-            density_nu[Defaults.idx_muon] = 0. # since we do not know the fraction of numu in southern sky
-            density_nu = density_nu / density_nu.sum()
-            N_astro_north_obs = self.nnus * N_yr * self.f_astro_north_truth
-            N_astro_north_exp = [N_astro_north_obs[i] / np.sum(self._astro_gen.prob_reject()[i] * density_nu) for i in range(Defaults.NEbin)]
-            astro_map = self.astroEvent_galaxy(np.random.poisson(N_astro_north_exp), density_nu)
+        N_astro_north_obs = np.random.poisson(self.nevts * N_yr * self.f_astro_north_truth)
+        N_astro_north_exp = [N_astro_north_obs[i] / np.sum(self._astro_gen.prob_reject()[i] * density_nu) for i in range(Defaults.NEbin)]
+        astro_map = self.astroEvent_galaxy(np.array(N_astro_north_exp), density_nu)
 
-            Natm = np.random.poisson(self.nnus * N_yr * (1-self.f_astro_north_truth))
-            self._atm_gen.nevents_expected.set_value(Natm, clear_parent=False)
-            atm_map = self._atm_gen.generate_event_maps(1)[0]
+        Natm = np.random.poisson(self.nevts * N_yr * (1-self.f_astro_north_truth))
+        self._atm_gen.nevents_expected.set_value(Natm, clear_parent=False)
+        atm_map = self._atm_gen.generate_event_maps(1)[0]
 
         return (atm_map + astro_map)

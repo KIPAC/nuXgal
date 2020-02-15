@@ -31,7 +31,7 @@ def significance(chi_square, dof):
     -------
     significance : `float`
     """
-    p_value = distributions.chi2.sf(chi_square, dof-1)
+    p_value = distributions.chi2.sf(chi_square, dof)
     significance_twoTailNorm = norm.isf(p_value/2)
     return significance_twoTailNorm
 
@@ -88,9 +88,6 @@ class Likelihood():
         if computeSTD:
             self.computeAtmophericEventDistribution(N_re=500, writeMap=True)
         else:
-            #w_atm_mean_file = np.loadtxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR,  'w_atm_mean' +
-            #                                          '_' + str(self.N_yr) + '.txt'))
-            #self.w_atm_mean = w_atm_mean_file.reshape((Defaults.NEbin, Defaults.NCL))
             w_atm_std_file = np.loadtxt(Defaults.SYNTHETIC_ATM_CROSS_CORR_STD_FORMAT.format(galaxyName=self.gs.galaxyName,
                                                                                             nyear=str(self.N_yr)))
             self.w_atm_std = w_atm_std_file.reshape((Defaults.NEbin, Defaults.NCL))
@@ -100,7 +97,7 @@ class Likelihood():
 
         self.w_std_square0 = np.zeros((Defaults.NEbin, Defaults.NCL))
         for i in range(Defaults.NEbin):
-            self.w_std_square0[i] = self.w_atm_std_square[1] * self.Ncount_atm[1]
+            self.w_std_square0[i] = self.w_atm_std_square[i] * self.Ncount_atm[i]
 
 
     def anafastMask(self):
@@ -143,50 +140,35 @@ class Likelihood():
         w_cross = np.zeros((N_re, Defaults.NEbin, 3 * Defaults.NSIDE))
         Ncount_av = np.zeros(Defaults.NEbin)
         ns = NeutrinoSample()
-        if self.N_yr != 3:
-            eg = EventGenerator()
-        else:
-            eg_2010 = EventGenerator('IC79-2010')
-            eg_2011 = EventGenerator('IC86-2011')
-            eg_2012 = EventGenerator('IC86-2012')
+        eg_2010 = EventGenerator('IC79-2010')
+        eg_2011 = EventGenerator('IC86-2011')
+        eg_2012 = EventGenerator('IC86-2012')
+
 
         for iteration in np.arange(N_re):
             print("iter ", iteration)
-
-            #Nastro = np.random.poisson(eg.Nastro_1yr_Aeffmax * N_yr * 1.)
-            #eventmap_atm = eg.astroEvent_galaxy(Nastro, self.gs.density)
+            eg_2010.atm_gen.nevents_expected.set_value(np.random.poisson(eg_2010.nevts * 1.), clear_parent=False)
 
             if self.N_yr != 3:
-                eventnumber_Ebin = np.random.poisson(eg.nevts * self.N_yr)
-                eg.atm_gen.nevents_expected.set_value(eventnumber_Ebin, clear_parent=False)
-                eventmap_atm = eg.atm_gen.generate_event_maps(1)[0]
+                eg_2011.atm_gen.nevents_expected.set_value(np.random.poisson(eg_2011.nevts * (self.N_yr - 1.)/2.), clear_parent=False)
+                eg_2012.atm_gen.nevents_expected.set_value(np.random.poisson(eg_2012.nevts * (self.N_yr - 1.)/2.), clear_parent=False)
 
             else:
-                eg_2010.atm_gen.nevents_expected.set_value(np.random.poisson(eg_2010.nevts * 1.), clear_parent=False)
                 eg_2011.atm_gen.nevents_expected.set_value(np.random.poisson(eg_2011.nevts * 1.), clear_parent=False)
                 eg_2012.atm_gen.nevents_expected.set_value(np.random.poisson(eg_2012.nevts * 1.), clear_parent=False)
-                eventmap_atm = eg_2010.atm_gen.generate_event_maps(1)[0] +\
-                    eg_2011.atm_gen.generate_event_maps(1)[0] +\
-                    eg_2012.atm_gen.generate_event_maps(1)[0]
+
+            eventmap_atm = eg_2010.atm_gen.generate_event_maps(1)[0] + eg_2011.atm_gen.generate_event_maps(1)[0] + eg_2012.atm_gen.generate_event_maps(1)[0]
 
             ns.inputCountsmap(eventmap_atm)
             ns.updateMask(self.idx_mask)
             w_cross[iteration] = ns.getCrossCorrelation(self.gs.overdensityalm)
             Ncount_av = Ncount_av + ns.getEventCounts()
 
-
-            # first mask makes counts in masked region zero, for correct counting of event number.
-            # Second mask applies to healpy cross correlation calculation.
-            #eventmap_atm = vector_apply_mask(eventmap_atm, self.idx_mask, copy=False)
-            #w_cross[iteration] = ns.getCrossCorrelation_countsmap(eventmap_atm, self.gs.overdensity, self.idx_mask)
-            #Ncount = Ncount + np.sum(eventmap_atm, axis=1)
-
         self.w_atm_mean = np.mean(w_cross, axis=0)
         self.w_atm_std = np.std(w_cross, axis=0)
         self.Ncount_atm = Ncount_av / float(N_re)
-
-
         self.w_atm_std_square = self.w_atm_std ** 2
+
         if writeMap:
             #np.savetxt(os.path.join(Defaults.NUXGAL_SYNTHETICDATA_DIR, 'w_atm_mean' + '_' + str(self.N_yr) + '.txt'),
             #           self.w_atm_mean)
@@ -295,23 +277,23 @@ class Likelihood():
         TS_array : `np.array`
             The array of TS values
         """
-        if self.N_yr != 3:
-            eg = EventGenerator(year='IC86-2012',  astroModel=astroModel)
+        eg_2010 = EventGenerator('IC79-2010',   astroModel=astroModel)
+        eg_2011 = EventGenerator('IC86-2011',   astroModel=astroModel)
+        eg_2012 = EventGenerator('IC86-2012',   astroModel=astroModel)
 
-        else:
-            eg_2010 = EventGenerator('IC79-2010',   astroModel=astroModel)
-            eg_2011 = EventGenerator('IC86-2011',   astroModel=astroModel)
-            eg_2012 = EventGenerator('IC86-2012',   astroModel=astroModel)
-        ns = NeutrinoSample()
         TS_array = np.zeros(N_re)
         for i in range(N_re):
             if self.N_yr != 3:
-                datamap = eg.SyntheticData(self.N_yr, f_diff=f_diff, density_nu=self.gs.density)
+                datamap = eg_2010.SyntheticData(1., f_diff=f_diff, density_nu=self.gs.density) +\
+                    eg_2011.SyntheticData((self.N_yr - 1.)/2., f_diff=f_diff, density_nu=self.gs.density) +\
+                    eg_2012.SyntheticData((self.N_yr - 1.)/2., f_diff=f_diff, density_nu=self.gs.density)
             else:
                 datamap = eg_2010.SyntheticData(1., f_diff=f_diff, density_nu=self.gs.density) +\
                     eg_2011.SyntheticData(1., f_diff=f_diff, density_nu=self.gs.density) +\
                     eg_2012.SyntheticData(1., f_diff=f_diff, density_nu=self.gs.density)
+            ns = NeutrinoSample()
             ns.inputCountsmap(datamap)
+            #ns.plotCountsmap(os.path.join(Defaults.NUXGAL_PLOT_DIR, 'Figcheck'))
             self.inputData(ns)
             minimizeResult = (self.minimize__lnL())
             print(i, self.Ncount, minimizeResult[0], minimizeResult[-1])
@@ -346,11 +328,11 @@ class Likelihood():
         matplotlib.rc('legend', **legendfont)
         matplotlib.rc("text", usetex=True)
 
-        plt.ylabel(r'$E^2 dN/dE\,[\mathrm{GeV\,cm^{-2}\,s^{-1}}]$')
+        plt.ylabel(r'$E^2 dN/dE\,[\mathrm{GeV\,cm^{-2}\,s^{-1}\,sr^{-1}}]$')
         plt.xlabel(r'$\log$ (E [GeV])')
         #plt.ylim(1e-3, 10) # for f_astro
-        plt.ylim(1e-9, 1e-4) # for flux
-        plt.xlim(2, 6)
+        plt.ylim(1e-9, 1e-5) # for flux
+        plt.xlim(2.5, 5.5)
         plt.yscale('log')
 
         #cmap = matplotlib.colors.LinearSegmentedColormap.from_list("",
@@ -362,7 +344,7 @@ class Likelihood():
         bestfit_f, _ = self.minimize__lnL()
 
         # common x for castro object initialization
-        f_Ebin = np.linspace(0, 2, 1000)
+        f_Ebin = np.linspace(0, 4, 1000)
 
         exposuremap = ICECUBE_EXPOSURE_LIBRARY.get_exposure('IC86-2012', 2.28)
 
@@ -395,6 +377,7 @@ class Likelihood():
             # else plot the 2 sigma upper limit
             else:
                 f_hi = castro.getLimit(0.05)
+                #print (f_hi)
                 plt.errorbar(Defaults.map_logE_center[idx_E], f_hi * factor_f2flux, yerr=f_hi * factor_f2flux * 0.2,
                              xerr=Defaults.map_dlogE/2., uplims=True, color='k')
                 f_select_lo, f_select_hi = 0, castro.getLimit(coloralphalimit)
@@ -433,7 +416,7 @@ class Likelihood():
         value : `float`
             The log of the prior
         """
-        if np.min(f) > 0. and np.max(f) < 2.:
+        if np.min(f) > -4. and np.max(f) < 4.:
             return 0.
         return -np.inf
 
