@@ -38,7 +38,8 @@ syntheticData/
 fit_profile.pstats
 data/irfs/WeightedAeff*
 data/irfs/Ncos*
-
+data/chains
+nb/
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
