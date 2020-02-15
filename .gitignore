@@ -36,7 +36,9 @@ plots/
 data/data/
 syntheticData/
 fit_profile.pstats
-test.h5
+data/irfs/WeightedAeff*
+data/irfs/Ncos*
+
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
