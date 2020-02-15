@@ -68,14 +68,11 @@ def generateCountsmap(year):
 
     # get energy index of events
     _index_map_logE = np.searchsorted(Defaults.map_logE_edge, AtmBG_file[:, 1]) - 1
-    _index_map_logE[_index_map_logE == -1] = 0 # group logE < 2 events to bin 0
+    _index_map_logE[_index_map_logE == -1] = 0 # group logE < 2 events to bin 0 (we don't use bin 0)
 
     # convert event directions to pixel numbers
     # pi/2 - dec = theta, ra = phi
     _index_map_pixel = hp.pixelfunc.ang2pix(Defaults.NSIDE, theta=np.radians(90. - AtmBG_file[:, 4]) , phi=np.radians(AtmBG_file[:, 3]))
-    # assign random azimuthal angles
-    #randomphi = 2 * np.pi * np.random.rand(len(AtmBG_file))
-    #_index_map_pixel = hp.pixelfunc.ang2pix(Defaults.NSIDE, np.radians(90. - AtmBG_file[:, 4]) , randomphi)
 
     # put events into healpy maps
     for i, _ in enumerate(AtmBG_file):

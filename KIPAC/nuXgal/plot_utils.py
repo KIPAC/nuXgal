@@ -464,7 +464,7 @@ class FigureDict:
         axes.set_yscale('log')
         axes.set_xlabel('E [GeV]')
         axes.set_ylabel(r'$E^2 \Phi\,[GeV\,cm^{-2}\,s^{-1}\,sr^{-1}]$')
-        axes.set_xlim(1e2, 1e8)
+        axes.set_xlim(1e2, 1e7)
         axes.set_ylim(1e-9, 1e-2)
 
         eVals_sq = eVals*eVals
