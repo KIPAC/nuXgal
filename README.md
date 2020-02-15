@@ -9,6 +9,9 @@ The following steps install the code.
 #### Clone the repo from github
 git clone https://github.com/KIPAC/nuXgal.git
 
+#### If you want the tag corresponding to the paper draft you can checkout that version explictly
+git checkout tags/v0.1
+
 #### We recommed that you explictly tell the code to put IRFs and ancillary files with the code itself.  You can do this by setting:
 export NUXGAL_DIR=DIRECTORY_WITH_CODE
 
