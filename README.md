@@ -23,7 +23,7 @@ conda activate nuXgal
 #### Setup the code
 python setup.py develop
 
-#### Download IceCube public three-year point source data (https://icecube.wisc.edu/science/data/PS-3years) to directory $ICECUBE_DATA_FOLDER.
+#### Download IceCube data, for example the public three-year point source data (https://icecube.wisc.edu/science/data/PS-3years) to directory $ICECUBE_DATA_FOLDER.
 
 #### Generate instrument response function
 python scripts/generateICIRFS.py -i $ICECUBE_DATA_FOLDER
